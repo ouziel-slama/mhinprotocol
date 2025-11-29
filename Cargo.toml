@@ -1,0 +1,19 @@
+[package]
+name = "mhinprotocol"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.63"
+license = "MIT OR Apache-2.0"
+description = "Reference Rust implementation of the MY HASH IS NICE (MHIN) protocol."
+repository = "https://github.com/ouziel-slama/mhinprotocol"
+homepage = "https://github.com/ouziel-slama/mhinprotocol"
+documentation = "https://docs.rs/mhinprotocol"
+readme = "README.md"
+keywords = ["bitcoin", "protocol", "mhin", "leading-zeros", "cryptocurrency"]
+categories = ["cryptography::cryptocurrencies", "algorithms"]
+
+[dependencies]
+bitcoin = "0.32"
+ciborium = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+xxhash-rust = { version = "0.8", default-features = false, features = ["xxh64"] }
