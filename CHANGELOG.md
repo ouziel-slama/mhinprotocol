@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-11-30
+
+### Added
+
+- `MhinNetwork` enum plus per-network `MhinConfig` constants for mainnet, testnet4, signet, and regtest
+- Documentation note added in `docs/protocol.typ` clarifying OP_RETURN behavior
+- `MhinStore::pop` method for retrieving and removing MHIN balances in one call
+
+### Changed
+
+- `MhinConfig::mhin_prefix` now stores a static byte slice to make the configuration compile-time constant
+- `MhinProtocol::process_block` now uses `MhinStore::pop` to burn spent inputs atomically
+
 ## [0.1.1] - 2025-11-30
 
 ### Added

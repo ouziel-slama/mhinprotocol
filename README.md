@@ -43,7 +43,7 @@ The protocol processes blocks in two phases:
 2. **Processing** (`process_block`): Updates MHIN balances in the store. This phase is **sequential** — blocks must be processed in order, one after another.
 
 ```rust
-use mhinprotocol::{MhinProtocol, MhinConfig, MhinStore, Amount, UtxoKey};
+use mhinprotocol::{MhinProtocol, MhinConfig, MhinNetwork, MhinStore, Amount, UtxoKey};
 
 // Implement your own store
 struct MyStore { /* ... */ }
@@ -52,6 +52,10 @@ impl MhinStore for MyStore {
     fn get(&mut self, key: &UtxoKey) -> Amount {
         // Fetch MHIN balance for the given UTXO key
     }
+
+    fn pop(&mut self, key: &UtxoKey) -> Amount {
+        // Remove the entry for the given UTXO key, returning the balance
+    }
     
     fn set(&mut self, key: UtxoKey, value: Amount) {
         // Store MHIN balance for the given UTXO key
@@ -59,8 +63,8 @@ impl MhinStore for MyStore {
 }
 
 fn main() {
-    // Create protocol instance with default configuration
-    let protocol = MhinProtocol::new(MhinConfig::default());
+    // Create protocol instance with mainnet parameters
+    let protocol = MhinProtocol::new(MhinConfig::for_network(MhinNetwork::Mainnet));
     let mut store = MyStore::new();
     
     // Fetch blocks from your Bitcoin source
@@ -82,17 +86,17 @@ fn main() {
 ### Configuration
 
 ```rust
-use mhinprotocol::MhinConfig;
+use mhinprotocol::{MhinConfig, MhinNetwork};
 
-let config = MhinConfig {
-    // Minimum leading zeros required to earn MHIN (default: 6)
-    min_zero_count: 6,
-    
-    // Base reward for the best transaction in a block (default: 4096)
-    base_reward: 4096,
-    
-    // Prefix for custom distribution OP_RETURN data (default: "MHIN")
-    mhin_prefix: b"MHIN".to_vec(),
+// Use one of the built-in network constants.
+let mainnet = MhinConfig::MAINNET;
+let testnet = MhinConfig::for_network(MhinNetwork::Testnet4);
+
+// Or describe a fully custom configuration.
+let custom = MhinConfig {
+    min_zero_count: 8,
+    base_reward: 8_192,
+    mhin_prefix: b"MHN8",
 };
 ```
 
@@ -124,7 +128,8 @@ Include an OP_RETURN output with:
 | Type | Description |
 |------|-------------|
 | `MhinProtocol` | Main entry point for processing blocks |
-| `MhinConfig` | Protocol configuration parameters |
+| `MhinConfig` | Protocol configuration parameters (per network) |
+| `MhinNetwork` | Supported Bitcoin networks for MHIN constants |
 | `MhinStore` | Trait for storage backend implementation |
 | `PreProcessedMhinBlock` | Pre-processed block data |
 | `MhinTransaction` | Transaction with MHIN-relevant fields |

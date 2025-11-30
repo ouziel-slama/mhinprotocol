@@ -34,7 +34,7 @@ pub mod store;
 /// Core types used by the protocol.
 pub mod types;
 
-pub use config::MhinConfig;
+pub use config::{MhinConfig, MhinNetwork};
 pub use protocol::MhinProtocol;
 pub use store::MhinStore;
 pub use types::{Amount, MhinInput, MhinOutput, MhinTransaction, PreProcessedMhinBlock, UtxoKey};

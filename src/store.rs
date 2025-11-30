@@ -9,6 +9,10 @@ pub trait MhinStore {
     /// Fetches the MHIN balance attached to a given UTXO key.
     fn get(&mut self, key: &UtxoKey) -> Amount;
 
+    /// Removes the entry for the UTXO key, returning its current MHIN balance.
+    /// Implementations should return `0` if the key is not present.
+    fn pop(&mut self, key: &UtxoKey) -> Amount;
+
     /// Sets the MHIN balance assigned to a UTXO key.
     fn set(&mut self, key: UtxoKey, value: Amount);
 }

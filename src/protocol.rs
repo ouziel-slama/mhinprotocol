@@ -65,7 +65,7 @@ impl MhinProtocol {
             let mut outputs = Vec::with_capacity(tx.output.len());
             for (vout, out) in tx.output.iter().enumerate() {
                 if out.script_pubkey.is_op_return() {
-                    distributions = parse_op_return(&out.script_pubkey, &self.config.mhin_prefix);
+                    distributions = parse_op_return(&out.script_pubkey, self.config.mhin_prefix);
                     continue;
                 }
                 let value = out.value.to_sat();
@@ -176,10 +176,9 @@ impl MhinProtocol {
             // Calculate the total MHIN input from the inputs.
             let mut total_mhin_input = 0;
             for input in &tx.inputs {
-                let mhin_input = store.get(&input.utxo_key);
+                let mhin_input = store.pop(&input.utxo_key);
                 total_mhin_input += mhin_input;
                 if mhin_input > 0 {
-                    store.set(input.utxo_key, 0);
                     utxo_spent_count += 1;
                 }
             }
@@ -413,6 +412,10 @@ mod tests {
             *self.balances.get(key).unwrap_or(&0)
         }
 
+        fn pop(&mut self, key: &UtxoKey) -> Amount {
+            self.balances.remove(key).unwrap_or(0)
+        }
+
         fn set(&mut self, key: UtxoKey, value: Amount) {
             self.balances.insert(key, value);
         }
@@ -423,7 +426,7 @@ mod tests {
         let config = MhinConfig {
             min_zero_count: 65,
             base_reward: 500,
-            mhin_prefix: b"MHIN".to_vec(),
+            mhin_prefix: b"MHIN",
         };
         let protocol = MhinProtocol::new(config);
 
@@ -476,7 +479,7 @@ mod tests {
         let config = MhinConfig {
             min_zero_count: 32,
             base_reward: 777,
-            mhin_prefix: b"MHIN".to_vec(),
+            mhin_prefix: b"MHIN",
         };
         let protocol = MhinProtocol::new(config);
 
@@ -497,11 +500,11 @@ mod tests {
 
     #[test]
     fn pre_process_block_assigns_rewards_and_custom_distribution() {
-        let prefix = b"MHIN".to_vec();
+        let prefix = b"MHIN";
         let config = MhinConfig {
             min_zero_count: 0,
             base_reward: 1_024,
-            mhin_prefix: prefix.clone(),
+            mhin_prefix: prefix,
         };
         let protocol = MhinProtocol::new(config);
 
@@ -510,7 +513,7 @@ mod tests {
             standard_output(4_000),
             standard_output(1_000),
             standard_output(0),
-            op_return_with_prefix(&prefix, &[7, 8]),
+            op_return_with_prefix(prefix, &[7, 8]),
         ];
         let rewarding_tx = make_transaction(prev_outs.clone(), tx_outputs);
         let block = build_block(vec![make_coinbase_tx(), rewarding_tx.clone()]);
@@ -561,7 +564,7 @@ mod tests {
         let config = MhinConfig {
             min_zero_count: 0,
             base_reward: 512,
-            mhin_prefix: b"MHIN".to_vec(),
+            mhin_prefix: b"MHIN",
         };
         let protocol = MhinProtocol::new(config);
 
@@ -594,18 +597,18 @@ mod tests {
 
     #[test]
     fn pre_process_block_handles_transactions_with_only_op_return_outputs() {
-        let prefix = b"MHIN".to_vec();
+        let prefix = b"MHIN";
         let config = MhinConfig {
             min_zero_count: 0,
             base_reward: 2_048,
-            mhin_prefix: prefix.clone(),
+            mhin_prefix: prefix,
         };
         let protocol = MhinProtocol::new(config);
 
         let prev_outs = vec![previous_outpoint(0xEF, 1)];
         let op_return_only_tx = make_transaction(
             prev_outs,
-            vec![op_return_with_prefix(&prefix, &[42, 43, 44])],
+            vec![op_return_with_prefix(prefix, &[42, 43, 44])],
         );
         let block = build_block(vec![make_coinbase_tx(), op_return_only_tx]);
 
@@ -640,7 +643,7 @@ mod tests {
         let config = MhinConfig {
             min_zero_count: 0,
             base_reward: 0,
-            mhin_prefix: b"MHIN".to_vec(),
+            mhin_prefix: b"MHIN",
         };
         let protocol = MhinProtocol::new(config);
 
@@ -710,7 +713,7 @@ mod tests {
         let config = MhinConfig {
             min_zero_count: best_zeroes,
             base_reward: 4_096,
-            mhin_prefix: b"MHIN".to_vec(),
+            mhin_prefix: b"MHIN",
         };
         let protocol = MhinProtocol::new(config);
 
@@ -797,7 +800,7 @@ mod tests {
 
         for (idx, output) in outputs.iter().enumerate() {
             let expected = output.reward + expected_shares[idx];
-            assert_eq!(store.balance(&output.utxo_key), expected);
+            assert_eq!(store.get(&output.utxo_key), expected);
         }
 
         // Verify ProcessedMhinBlock fields
@@ -987,8 +990,8 @@ mod tests {
         let store_entries = store.balances.len();
         assert_eq_cov!(
             store_entries,
-            4,
-            "tx without outputs must not grow the store"
+            reward_only_outputs.len(),
+            "inputs without outputs must fully leave the store"
         );
 
         // Verify ProcessedMhinBlock fields

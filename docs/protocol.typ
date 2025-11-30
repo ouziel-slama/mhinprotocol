@@ -110,4 +110,7 @@ You can specify exactly how MHINs should be distributed by including an OP_RETUR
 
 If you have 1000 MHINs to distribute across 3 outputs and want to send 600 to the first, 300 to the second, and 100 to the third, your OP_RETURN would contain "MHIN" followed by the CBOR encoding of [600, 300, 100].
 
-*Note:* If no valid OP_RETURN distribution is found, the transaction automatically uses the proportional distribution method.
+*Notes:*
+- If no valid OP_RETURN distribution is found, the transaction automatically uses the proportional distribution method.
+- If a transaction contains only one OP_RETURN output, any MHIN attached to the transaction’s inputs **and any newly earned reward** are permanently burned because there are no spendable outputs to receive them.
+- When several OP_RETURN outputs are present, only the one appearing last in the transaction and carrying a valid `MHIN`+CBOR payload is considered for distribution.
