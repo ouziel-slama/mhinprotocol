@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-11-30
+
+### Added
+
+- `ProcessedMhinBlock` return type that surfaces reward entries, totals, and processing stats
+- `Reward` type describing each rewarded output when processing a block
+
+### Changed
+
+- `MhinBlock` has been renamed to `PreProcessedMhinBlock` throughout the public API
+- `MhinProtocol::process_block` no longer requires a block index and now returns `ProcessedMhinBlock`
+
 ## [0.1.0] - 2025-11-29
 
 ### Added
@@ -23,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Custom distribution via OP_RETURN with CBOR-encoded data
 - Comprehensive test suite with 28 unit tests
 
-[Unreleased]: https://github.com/ouziel-slama/mhinprotocol/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ouziel-slama/mhinprotocol/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ouziel-slama/mhinprotocol/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ouziel-slama/mhinprotocol/releases/tag/v0.1.0
 

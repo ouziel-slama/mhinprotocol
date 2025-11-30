@@ -21,7 +21,7 @@
 //! let mhin_block = protocol.pre_process_block(&bitcoin_block);
 //!
 //! // Process blocks sequentially
-//! protocol.process_block(block_index, &mhin_block, &mut store);
+//! protocol.process_block(&mhin_block, &mut store);
 //! ```
 
 /// Protocol configuration.
@@ -37,4 +37,4 @@ pub mod types;
 pub use config::MhinConfig;
 pub use protocol::MhinProtocol;
 pub use store::MhinStore;
-pub use types::{Amount, MhinBlock, MhinInput, MhinOutput, MhinTransaction, UtxoKey};
+pub use types::{Amount, MhinInput, MhinOutput, MhinTransaction, PreProcessedMhinBlock, UtxoKey};

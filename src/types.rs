@@ -47,9 +47,39 @@ pub struct MhinTransaction {
 
 /// Pre-processed block with all MHIN-relevant transactions.
 #[derive(Debug, Clone)]
-pub struct MhinBlock {
+pub struct PreProcessedMhinBlock {
     /// Transactions in the block (excluding coinbase).
     pub transactions: Vec<MhinTransaction>,
     /// Highest leading zero count among all transactions.
     pub max_zero_count: u8,
+}
+
+/// Reward information for a single rewarded output.
+#[derive(Debug, Clone)]
+pub struct Reward {
+    /// Transaction ID that produced the reward.
+    pub txid: Txid,
+    /// Output index carrying the reward.
+    pub vout: u32,
+    /// MHIN reward granted to the output.
+    pub reward: Amount,
+    /// Leading zero count of the transaction ID.
+    pub zero_count: u8,
+}
+
+/// Fully processed block statistics and reward set.
+#[derive(Debug, Clone)]
+pub struct ProcessedMhinBlock {
+    /// All rewards generated within the block.
+    pub rewards: Vec<Reward>,
+    /// Sum of all rewards in the block.
+    pub total_reward: Amount,
+    /// Highest leading zero count observed in the block.
+    pub max_zero_count: u8,
+    /// TXID of the transaction with the highest zero count.
+    pub nicest_txid: Option<Txid>,
+    /// Number of previously existing UTXOs spent in the block.
+    pub utxo_spent_count: u64,
+    /// Number of new UTXOs created in the block.
+    pub new_utxo_count: u64,
 }

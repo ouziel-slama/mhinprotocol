@@ -73,8 +73,8 @@ fn main() {
         .collect();
     
     // Phase 2: Process blocks sequentially
-    for (index, mhin_block) in mhin_blocks.iter().enumerate() {
-        protocol.process_block(index as u64, mhin_block, &mut store);
+    for mhin_block in &mhin_blocks {
+        protocol.process_block(mhin_block, &mut store);
     }
 }
 ```
@@ -126,7 +126,7 @@ Include an OP_RETURN output with:
 | `MhinProtocol` | Main entry point for processing blocks |
 | `MhinConfig` | Protocol configuration parameters |
 | `MhinStore` | Trait for storage backend implementation |
-| `MhinBlock` | Pre-processed block data |
+| `PreProcessedMhinBlock` | Pre-processed block data |
 | `MhinTransaction` | Transaction with MHIN-relevant fields |
 | `UtxoKey` | 8-byte key identifying a UTXO (`[u8; 8]`) |
 | `Amount` | MHIN balance type (`u64`) |

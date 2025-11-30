@@ -7,7 +7,9 @@ use crate::{
         leading_zero_count, parse_op_return,
     },
     store::MhinStore,
-    types::{MhinBlock, MhinInput, MhinOutput, MhinTransaction},
+    types::{
+        MhinInput, MhinOutput, MhinTransaction, PreProcessedMhinBlock, ProcessedMhinBlock, Reward,
+    },
 };
 
 /// Entry point used to process blocks according to the MHIN protocol.
@@ -30,9 +32,9 @@ impl MhinProtocol {
     /// Pre-processes a Bitcoin block, extracting all MHIN-relevant data.
     ///
     /// This phase is **parallelizable** — you can pre-process multiple blocks concurrently.
-    /// The returned [`MhinBlock`] contains all transactions with their computed rewards
+    /// The returned [`PreProcessedMhinBlock`] contains all transactions with their computed rewards
     /// and distribution hints.
-    pub fn pre_process_block(&self, block: &Block) -> MhinBlock {
+    pub fn pre_process_block(&self, block: &Block) -> PreProcessedMhinBlock {
         let mut transactions = Vec::with_capacity(block.txdata.len());
         let mut max_zero_count: u8 = 0;
 
@@ -114,7 +116,7 @@ impl MhinProtocol {
             }
         }
 
-        MhinBlock {
+        PreProcessedMhinBlock {
             transactions,
             max_zero_count,
         }
@@ -127,11 +129,43 @@ impl MhinProtocol {
     /// 1. Collects MHIN from spent inputs
     /// 2. Applies rewards and distributions to outputs
     /// 3. Updates the store with new balances
-    pub fn process_block<S>(&self, _block_index: u64, block: &MhinBlock, store: &mut S)
+    ///
+    /// Returns a [`ProcessedMhinBlock`] containing all rewards and block statistics.
+    pub fn process_block<S>(
+        &self,
+        block: &PreProcessedMhinBlock,
+        store: &mut S,
+    ) -> ProcessedMhinBlock
     where
         S: MhinStore,
     {
+        let mut rewards = Vec::new();
+        let mut total_reward: u64 = 0;
+        let mut max_zero_count: u8 = 0;
+        let mut nicest_txid = None;
+        let mut utxo_spent_count = 0;
+        let mut new_utxo_count = 0;
+
         for tx in &block.transactions {
+            // Track the nicest txid (highest zero count).
+            if tx.zero_count > max_zero_count || nicest_txid.is_none() {
+                max_zero_count = tx.zero_count;
+                nicest_txid = Some(tx.txid);
+            }
+
+            // Collect rewards for outputs with non-zero rewards.
+            for output in &tx.outputs {
+                if output.reward > 0 {
+                    rewards.push(Reward {
+                        txid: tx.txid,
+                        vout: output.vout,
+                        reward: output.reward,
+                        zero_count: tx.zero_count,
+                    });
+                    total_reward += output.reward;
+                }
+            }
+
             // Initialize the MHIN values for the outputs to the reward values.
             let mut outputs_mhin_values = tx
                 .outputs
@@ -146,6 +180,7 @@ impl MhinProtocol {
                 total_mhin_input += mhin_input;
                 if mhin_input > 0 {
                     store.set(input.utxo_key, 0);
+                    utxo_spent_count += 1;
                 }
             }
 
@@ -182,7 +217,17 @@ impl MhinProtocol {
                 .enumerate()
                 .for_each(|(i, value)| {
                     store.set(tx.outputs[i].utxo_key, *value);
+                    new_utxo_count += 1;
                 });
+        }
+
+        ProcessedMhinBlock {
+            rewards,
+            total_reward,
+            max_zero_count,
+            nicest_txid,
+            utxo_spent_count,
+            new_utxo_count,
         }
     }
 }
@@ -740,12 +785,12 @@ mod tests {
             has_op_return_distribution: false,
         };
 
-        let block = MhinBlock {
+        let block = PreProcessedMhinBlock {
             transactions: vec![tx],
             max_zero_count: 0,
         };
 
-        protocol.process_block(42, &block, &mut store);
+        let result = protocol.process_block(&block, &mut store);
 
         assert_eq!(store.balance(&input_a), 0);
         assert_eq!(store.balance(&input_b), 0);
@@ -754,6 +799,17 @@ mod tests {
             let expected = output.reward + expected_shares[idx];
             assert_eq!(store.balance(&output.utxo_key), expected);
         }
+
+        // Verify ProcessedMhinBlock fields
+        // input_a has 60, input_b has 0, so only 1 is counted as spent
+        assert_eq!(result.utxo_spent_count, 1);
+        assert_eq!(result.new_utxo_count, outputs.len() as u64);
+        assert_eq!(
+            result.total_reward,
+            outputs.iter().map(|o| o.reward).sum::<u64>()
+        );
+        assert_eq!(result.max_zero_count, 0);
+        assert!(result.nicest_txid.is_some());
     }
 
     #[test]
@@ -828,16 +884,26 @@ mod tests {
             has_op_return_distribution: true,
         };
 
-        let block = MhinBlock {
+        let block = PreProcessedMhinBlock {
             transactions: vec![capped_tx, exact_tx, remainder_tx],
             max_zero_count: 0,
         };
 
-        protocol.process_block(1, &block, &mut store);
+        let result = protocol.process_block(&block, &mut store);
 
         for key in [capped_input, exact_input, remainder_input] {
             assert_eq_cov!(store.balance(&key), 0, "inputs must be burned after use");
         }
+
+        // Verify ProcessedMhinBlock fields
+        assert_eq_cov!(
+            result.utxo_spent_count,
+            3,
+            "all 3 inputs had non-zero balances"
+        );
+        let expected_new_utxos =
+            capped_outputs.len() + exact_outputs.len() + remainder_outputs.len();
+        assert_eq_cov!(result.new_utxo_count, expected_new_utxos as u64);
 
         for (idx, output) in capped_outputs.iter().enumerate() {
             let expected = output.reward + capped_expected[idx];
@@ -904,12 +970,12 @@ mod tests {
             has_op_return_distribution: true,
         };
 
-        let block = MhinBlock {
+        let block = PreProcessedMhinBlock {
             transactions: vec![zero_input_tx, empty_outputs_tx],
             max_zero_count: 0,
         };
 
-        protocol.process_block(99, &block, &mut store);
+        let result = protocol.process_block(&block, &mut store);
 
         for output in &reward_only_outputs {
             let balance = store.balance(&output.utxo_key);
@@ -924,5 +990,18 @@ mod tests {
             4,
             "tx without outputs must not grow the store"
         );
+
+        // Verify ProcessedMhinBlock fields
+        // zero_input has 0 balance so it doesn't count as spent, producing_input has 25 so it counts
+        assert_eq_cov!(
+            result.utxo_spent_count,
+            1,
+            "only producing_input had non-zero balance"
+        );
+        // reward_only_outputs has 2 outputs, empty_outputs_tx has 0 outputs
+        assert_eq_cov!(result.new_utxo_count, reward_only_outputs.len() as u64);
+        // Verify total_reward comes from reward_only_outputs
+        let expected_total_reward: u64 = reward_only_outputs.iter().map(|o| o.reward).sum();
+        assert_eq_cov!(result.total_reward, expected_total_reward);
     }
 }
