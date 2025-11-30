@@ -13,7 +13,7 @@ A Rust implementation of the **MY HASH IS NICE (MHIN)** protocol — a system th
 
 This library provides a database-agnostic and block parser-agnostic implementation of the MHIN protocol. It focuses purely on the protocol logic, allowing you to integrate it with any Bitcoin block source and any storage backend.
 
-For the complete protocol specification, see [docs/protocol.typ](docs/protocol.typ).
+For the complete protocol specification, see [docs/protocol.pdf](docs/protocol.pdf).
 
 ## Key Features
 
