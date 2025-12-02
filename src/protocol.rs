@@ -215,8 +215,10 @@ impl MhinProtocol {
                 .iter()
                 .enumerate()
                 .for_each(|(i, value)| {
-                    store.set(tx.outputs[i].utxo_key, *value);
-                    new_utxo_count += 1;
+                    if *value > 0 {
+                        store.set(tx.outputs[i].utxo_key, *value);
+                        new_utxo_count += 1;
+                    }
                 });
         }
 

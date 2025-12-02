@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-12-02
+
+### Fixed
+
+- `leading_zero_count` now iterates bytes in the displayed order so it counts the true leading zeros of a txid hash despite the internal little-endian storage
+- `MhinProtocol::process_block` now skips persisting zero-value outputs so the MHIN store only tracks spendable UTXOs
+
 ## [0.2.0] - 2025-11-30
 
 ### Added

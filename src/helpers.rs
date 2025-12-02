@@ -17,7 +17,9 @@ pub(crate) fn leading_zero_count(txid: &Txid) -> u8 {
     let mut count: u8 = 0;
     let bytes: &[u8] = txid.as_ref();
 
-    for &byte in bytes {
+    // bitcoin::Txid stores the hash in little-endian order; scan it in
+    // reverse so we count the human-visible leading zeros.
+    for &byte in bytes.iter().rev() {
         if byte == 0 {
             count += 2;
             continue;
@@ -182,14 +184,23 @@ mod tests {
         assert_eq!(leading_zero_count(&all_zero), 64);
 
         let mut half = [0xffu8; 32];
-        half[0] = 0x0f;
+        half[31] = 0x0f;
         let half_byte = txid_from_bytes(half);
         assert_eq!(leading_zero_count(&half_byte), 1);
 
         let mut bytes = [0xffu8; 32];
-        bytes[0] = 0xf0;
+        bytes[31] = 0xf0;
         let non_zero = txid_from_bytes(bytes);
         assert_eq!(leading_zero_count(&non_zero), 0);
+    }
+
+    #[test]
+    fn leading_zero_count_ignores_trailing_zero_bytes() {
+        let mut bytes = [0xffu8; 32];
+        bytes[0] = 0x00;
+        let txid = txid_from_bytes(bytes);
+
+        assert_eq!(leading_zero_count(&txid), 0);
     }
 
     #[test]

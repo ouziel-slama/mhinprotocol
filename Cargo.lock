@@ -155,7 +155,7 @@ checksum = "3011d1213f159867b13cfd6ac92d2cd5f1345762c63be3554e84092d85a50bbd"
 
 [[package]]
 name = "mhinprotocol"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "bitcoin",
  "ciborium",
