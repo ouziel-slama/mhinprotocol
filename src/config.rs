@@ -24,28 +24,28 @@ impl MhinConfig {
     /// MHIN parameters for Bitcoin mainnet.
     pub const MAINNET: Self = Self {
         min_zero_count: 6,
-        base_reward: 4_096 * (10 ^ 8),
+        base_reward: 4_096 * 10u64.pow(8),
         mhin_prefix: b"MHIN",
     };
 
     /// MHIN parameters for Bitcoin testnet4.
     pub const TESTNET4: Self = Self {
         min_zero_count: 2,
-        base_reward: 4_096 * (10 ^ 8),
+        base_reward: 4_096 * 10u64.pow(8),
         mhin_prefix: b"MHIN",
     };
 
     /// MHIN parameters for Bitcoin signet.
     pub const SIGNET: Self = Self {
         min_zero_count: 2,
-        base_reward: 4_096 * (10 ^ 8),
+        base_reward: 4_096 * 10u64.pow(8),
         mhin_prefix: b"MHIN",
     };
 
     /// MHIN parameters for Bitcoin regtest.
     pub const REGTEST: Self = Self {
         min_zero_count: 2,
-        base_reward: 4_096 * (10 ^ 8),
+        base_reward: 4_096 * 10u64.pow(8),
         mhin_prefix: b"MHIN",
     };
 
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn constants_expose_expected_parameters() {
-        let base_reward = 4_096 * (10 ^ 8);
+        let base_reward = 4_096 * 10u64.pow(8);
         assert_config(MhinConfig::MAINNET, 6, base_reward, b"MHIN");
         assert_config(MhinConfig::TESTNET4, 2, base_reward, b"MHIN");
         assert_config(MhinConfig::SIGNET, 2, base_reward, b"MHIN");

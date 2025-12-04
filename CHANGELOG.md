@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-12-04
+
+### Fixed
+
+- Corrected the configured MHIN base reward to `4_096 * 10u64.pow(8)` across all networks.
+
 ## [0.2.2] - 2025-12-04
 
 ### Fixed
