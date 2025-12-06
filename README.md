@@ -7,7 +7,7 @@
 [![Crates.io](https://img.shields.io/crates/v/mhinprotocol.svg)](https://crates.io/crates/mhinprotocol)
 [![Docs.rs](https://docs.rs/mhinprotocol/badge.svg)](https://docs.rs/mhinprotocol)
 
-A Rust implementation of the **MY HASH IS NICE (MHIN)** protocol — a system that rewards Bitcoin transactions with aesthetically pleasing transaction IDs (those starting with leading zeros).
+A Rust implementation of the [**MY HASH IS NICE (MHIN)**](https://myhashisnice.org/) protocol — a system that rewards Bitcoin transactions with aesthetically pleasing transaction IDs (those starting with leading zeros).
 
 ## Overview
 
