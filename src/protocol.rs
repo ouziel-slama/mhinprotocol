@@ -1,45 +1,45 @@
 use bitcoin::Block;
 
 use crate::{
-    config::MhinConfig,
+    config::ZeldConfig,
     helpers::{
         calculate_proportional_distribution, calculate_reward, compute_utxo_key,
         leading_zero_count, parse_op_return,
     },
-    store::MhinStore,
+    store::ZeldStore,
     types::{
-        MhinInput, MhinOutput, MhinTransaction, PreProcessedMhinBlock, ProcessedMhinBlock, Reward,
+        PreProcessedZeldBlock, ProcessedZeldBlock, Reward, ZeldInput, ZeldOutput, ZeldTransaction,
     },
 };
 
-/// Entry point used to process blocks according to the MHIN protocol.
+/// Entry point used to process blocks according to the ZELD protocol.
 #[derive(Debug, Clone, Default)]
-pub struct MhinProtocol {
-    config: MhinConfig,
+pub struct ZeldProtocol {
+    config: ZeldConfig,
 }
 
-impl MhinProtocol {
+impl ZeldProtocol {
     /// Creates a new protocol instance with the given configuration.
-    pub fn new(config: MhinConfig) -> Self {
+    pub fn new(config: ZeldConfig) -> Self {
         Self { config }
     }
 
     /// Returns a reference to the protocol configuration.
-    pub fn config(&self) -> &MhinConfig {
+    pub fn config(&self) -> &ZeldConfig {
         &self.config
     }
 
-    /// Pre-processes a Bitcoin block, extracting all MHIN-relevant data.
+    /// Pre-processes a Bitcoin block, extracting all ZELD-relevant data.
     ///
     /// This phase is **parallelizable** — you can pre-process multiple blocks concurrently.
-    /// The returned [`PreProcessedMhinBlock`] contains all transactions with their computed rewards
+    /// The returned [`PreProcessedZeldBlock`] contains all transactions with their computed rewards
     /// and distribution hints.
-    pub fn pre_process_block(&self, block: &Block) -> PreProcessedMhinBlock {
+    pub fn pre_process_block(&self, block: &Block) -> PreProcessedZeldBlock {
         let mut transactions = Vec::with_capacity(block.txdata.len());
         let mut max_zero_count: u8 = 0;
 
         for tx in &block.txdata {
-            // Coinbase transactions can never earn MHIN, so ignore them early.
+            // Coinbase transactions can never earn ZELD, so ignore them early.
             if tx.is_coinbase() {
                 continue;
             }
@@ -52,7 +52,7 @@ impl MhinProtocol {
             // Inputs are only represented by their previous UTXO keys.
             let mut inputs = Vec::with_capacity(tx.input.len());
             for input in &tx.input {
-                inputs.push(MhinInput {
+                inputs.push(ZeldInput {
                     utxo_key: compute_utxo_key(
                         &input.previous_output.txid,
                         input.previous_output.vout,
@@ -65,11 +65,11 @@ impl MhinProtocol {
             let mut outputs = Vec::with_capacity(tx.output.len());
             for (vout, out) in tx.output.iter().enumerate() {
                 if out.script_pubkey.is_op_return() {
-                    distributions = parse_op_return(&out.script_pubkey, self.config.mhin_prefix);
+                    distributions = parse_op_return(&out.script_pubkey, self.config.zeld_prefix);
                     continue;
                 }
                 let value = out.value.to_sat();
-                outputs.push(MhinOutput {
+                outputs.push(ZeldOutput {
                     utxo_key: compute_utxo_key(&txid, vout as u32),
                     value,
                     reward: 0,
@@ -78,7 +78,7 @@ impl MhinProtocol {
                 });
             }
 
-            // Apply OP_RETURN-provided custom MHIN distribution
+            // Apply OP_RETURN-provided custom ZELD distribution
             let mut has_op_return_distribution = false;
             if let Some(values) = distributions {
                 for (i, output) in outputs.iter_mut().enumerate() {
@@ -87,7 +87,7 @@ impl MhinProtocol {
                 has_op_return_distribution = true;
             }
 
-            transactions.push(MhinTransaction {
+            transactions.push(ZeldTransaction {
                 txid,
                 inputs,
                 outputs,
@@ -116,28 +116,28 @@ impl MhinProtocol {
             }
         }
 
-        PreProcessedMhinBlock {
+        PreProcessedZeldBlock {
             transactions,
             max_zero_count,
         }
     }
 
-    /// Processes a pre-processed block, updating MHIN balances in the store.
+    /// Processes a pre-processed block, updating ZELD balances in the store.
     ///
     /// This phase is **sequential** — blocks must be processed in order, one after another.
     /// For each transaction, this method:
-    /// 1. Collects MHIN from spent inputs
+    /// 1. Collects ZELD from spent inputs
     /// 2. Applies rewards and distributions to outputs
     /// 3. Updates the store with new balances
     ///
-    /// Returns a [`ProcessedMhinBlock`] containing all rewards and block statistics.
+    /// Returns a [`ProcessedZeldBlock`] containing all rewards and block statistics.
     pub fn process_block<S>(
         &self,
-        block: &PreProcessedMhinBlock,
+        block: &PreProcessedZeldBlock,
         store: &mut S,
-    ) -> ProcessedMhinBlock
+    ) -> ProcessedZeldBlock
     where
-        S: MhinStore,
+        S: ZeldStore,
     {
         let mut rewards = Vec::new();
         let mut total_reward: u64 = 0;
@@ -166,25 +166,25 @@ impl MhinProtocol {
                 }
             }
 
-            // Initialize the MHIN values for the outputs to the reward values.
-            let mut outputs_mhin_values = tx
+            // Initialize the ZELD values for the outputs to the reward values.
+            let mut outputs_zeld_values = tx
                 .outputs
                 .iter()
                 .map(|output| output.reward)
                 .collect::<Vec<_>>();
 
-            // Calculate the total MHIN input from the inputs.
-            let mut total_mhin_input = 0;
+            // Calculate the total ZELD input from the inputs.
+            let mut total_zeld_input = 0;
             for input in &tx.inputs {
-                let mhin_input = store.pop(&input.utxo_key);
-                total_mhin_input += mhin_input;
-                if mhin_input > 0 {
+                let zeld_input = store.pop(&input.utxo_key);
+                total_zeld_input += zeld_input;
+                if zeld_input > 0 {
                     utxo_spent_count += 1;
                 }
             }
 
-            // If there is a total MHIN input distribute the MHINs.
-            if total_mhin_input > 0 && !tx.outputs.is_empty() {
+            // If there is a total ZELD input distribute the ZELDs.
+            if total_zeld_input > 0 && !tx.outputs.is_empty() {
                 let shares = if tx.has_op_return_distribution {
                     let mut requested: Vec<u64> = tx
                         .outputs
@@ -192,26 +192,26 @@ impl MhinProtocol {
                         .map(|output| output.distribution)
                         .collect();
                     let requested_total: u64 = requested.iter().copied().sum();
-                    if requested_total > total_mhin_input {
-                        calculate_proportional_distribution(total_mhin_input, &tx.outputs)
+                    if requested_total > total_zeld_input {
+                        calculate_proportional_distribution(total_zeld_input, &tx.outputs)
                     } else {
-                        if requested_total < total_mhin_input {
+                        if requested_total < total_zeld_input {
                             requested[0] =
-                                requested[0].saturating_add(total_mhin_input - requested_total);
+                                requested[0].saturating_add(total_zeld_input - requested_total);
                         }
                         requested
                     }
                 } else {
-                    calculate_proportional_distribution(total_mhin_input, &tx.outputs)
+                    calculate_proportional_distribution(total_zeld_input, &tx.outputs)
                 };
 
                 for (i, value) in shares.into_iter().enumerate() {
-                    outputs_mhin_values[i] = outputs_mhin_values[i].saturating_add(value);
+                    outputs_zeld_values[i] = outputs_zeld_values[i].saturating_add(value);
                 }
             }
 
-            // Set the MHIN values for the outputs.
-            outputs_mhin_values
+            // Set the ZELD values for the outputs.
+            outputs_zeld_values
                 .iter()
                 .enumerate()
                 .for_each(|(i, value)| {
@@ -222,7 +222,7 @@ impl MhinProtocol {
                 });
         }
 
-        ProcessedMhinBlock {
+        ProcessedZeldBlock {
             rewards,
             total_reward,
             max_zero_count,
@@ -374,14 +374,14 @@ mod tests {
         [byte; 8]
     }
 
-    fn make_mhin_output(
+    fn make_zeld_output(
         utxo_key: UtxoKey,
         value: Amount,
         reward: Amount,
         distribution: Amount,
         vout: u32,
-    ) -> MhinOutput {
-        MhinOutput {
+    ) -> ZeldOutput {
+        ZeldOutput {
             utxo_key,
             value,
             reward,
@@ -409,7 +409,7 @@ mod tests {
         }
     }
 
-    impl MhinStore for MockStore {
+    impl ZeldStore for MockStore {
         fn get(&mut self, key: &UtxoKey) -> Amount {
             *self.balances.get(key).unwrap_or(&0)
         }
@@ -425,12 +425,12 @@ mod tests {
 
     #[test]
     fn pre_process_block_ignores_coinbase_and_applies_defaults() {
-        let config = MhinConfig {
+        let config = ZeldConfig {
             min_zero_count: 65,
             base_reward: 500,
-            mhin_prefix: b"MHIN",
+            zeld_prefix: b"ZELD",
         };
-        let protocol = MhinProtocol::new(config);
+        let protocol = ZeldProtocol::new(config);
 
         let prev_outs = vec![previous_outpoint(0xAA, 1), previous_outpoint(0xBB, 0)];
         let mut invalid_payload = b"BADP".to_vec();
@@ -478,12 +478,12 @@ mod tests {
 
     #[test]
     fn pre_process_block_returns_empty_when_block_only_has_coinbase() {
-        let config = MhinConfig {
+        let config = ZeldConfig {
             min_zero_count: 32,
             base_reward: 777,
-            mhin_prefix: b"MHIN",
+            zeld_prefix: b"ZELD",
         };
-        let protocol = MhinProtocol::new(config);
+        let protocol = ZeldProtocol::new(config);
 
         let block = build_block(vec![make_coinbase_tx()]);
         let processed = protocol.pre_process_block(&block);
@@ -491,7 +491,7 @@ mod tests {
         let only_coinbase = processed.transactions.is_empty();
         assert_cov!(
             only_coinbase,
-            "no non-coinbase transactions must yield zero MHIN entries"
+            "no non-coinbase transactions must yield zero ZELD entries"
         );
         let max_zero_is_zero = processed.max_zero_count == 0;
         assert_cov!(
@@ -502,13 +502,13 @@ mod tests {
 
     #[test]
     fn pre_process_block_assigns_rewards_and_custom_distribution() {
-        let prefix = b"MHIN";
-        let config = MhinConfig {
+        let prefix = b"ZELD";
+        let config = ZeldConfig {
             min_zero_count: 0,
             base_reward: 1_024,
-            mhin_prefix: prefix,
+            zeld_prefix: prefix,
         };
-        let protocol = MhinProtocol::new(config);
+        let protocol = ZeldProtocol::new(config);
 
         let prev_outs = vec![previous_outpoint(0xCC, 0)];
         let tx_outputs = vec![
@@ -563,12 +563,12 @@ mod tests {
 
     #[test]
     fn pre_process_block_ignores_op_return_with_wrong_prefix() {
-        let config = MhinConfig {
+        let config = ZeldConfig {
             min_zero_count: 0,
             base_reward: 512,
-            mhin_prefix: b"MHIN",
+            zeld_prefix: b"ZELD",
         };
-        let protocol = MhinProtocol::new(config);
+        let protocol = ZeldProtocol::new(config);
 
         let prev_outs = vec![previous_outpoint(0xAB, 0)];
         let tx_outputs = vec![
@@ -599,13 +599,13 @@ mod tests {
 
     #[test]
     fn pre_process_block_handles_transactions_with_only_op_return_outputs() {
-        let prefix = b"MHIN";
-        let config = MhinConfig {
+        let prefix = b"ZELD";
+        let config = ZeldConfig {
             min_zero_count: 0,
             base_reward: 2_048,
-            mhin_prefix: prefix,
+            zeld_prefix: prefix,
         };
-        let protocol = MhinProtocol::new(config);
+        let protocol = ZeldProtocol::new(config);
 
         let prev_outs = vec![previous_outpoint(0xEF, 1)];
         let op_return_only_tx = make_transaction(
@@ -626,12 +626,12 @@ mod tests {
         let defines_block_max = processed.max_zero_count == tx.zero_count;
         assert_cov!(
             defines_block_max,
-            "single MHIN candidate defines the block-wide zero count"
+            "single ZELD candidate defines the block-wide zero count"
         );
         let matches_base_reward = tx.reward == protocol.config().base_reward;
         assert_cov!(
             matches_base_reward,
-            "eligible OP_RETURN-only transactions still earn MHIN"
+            "eligible OP_RETURN-only transactions still earn ZELD"
         );
         let inputs_tracked = tx.inputs.iter().all(|input| input.utxo_key != [0; 8]);
         assert_cov!(
@@ -642,12 +642,12 @@ mod tests {
 
     #[test]
     fn pre_process_block_runs_reward_loop_without_payouts_when_base_is_zero() {
-        let config = MhinConfig {
+        let config = ZeldConfig {
             min_zero_count: 0,
             base_reward: 0,
-            mhin_prefix: b"MHIN",
+            zeld_prefix: b"ZELD",
         };
-        let protocol = MhinProtocol::new(config);
+        let protocol = ZeldProtocol::new(config);
 
         let prev_outs = vec![previous_outpoint(0xDD, 0)];
         let tx_outputs = vec![standard_output(10_000), standard_output(5_000)];
@@ -712,12 +712,12 @@ mod tests {
             "search must uncover distinct zero counts"
         );
 
-        let config = MhinConfig {
+        let config = ZeldConfig {
             min_zero_count: best_zeroes,
             base_reward: 4_096,
-            mhin_prefix: b"MHIN",
+            zeld_prefix: b"ZELD",
         };
-        let protocol = MhinProtocol::new(config);
+        let protocol = ZeldProtocol::new(config);
 
         let best_txid = best_tx.compute_txid();
         let worst_txid = worst_tx.compute_txid();
@@ -753,7 +753,7 @@ mod tests {
         let worst_has_zero_reward = worst_entry.reward == 0;
         assert_cov!(
             worst_has_zero_reward,
-            "transactions below the threshold should not earn MHIN"
+            "transactions below the threshold should not earn ZELD"
         );
         let worst_outputs_unrewarded = worst_entry.outputs.iter().all(|out| out.reward == 0);
         assert_cov!(
@@ -764,7 +764,7 @@ mod tests {
 
     #[test]
     fn process_block_distributes_inputs_without_custom_shares() {
-        let protocol = MhinProtocol::new(MhinConfig::default());
+        let protocol = ZeldProtocol::new(ZeldConfig::default());
 
         let input_a = fixed_utxo_key(0x01);
         let input_b = fixed_utxo_key(0x02);
@@ -773,16 +773,16 @@ mod tests {
         let output_a = fixed_utxo_key(0x10);
         let output_b = fixed_utxo_key(0x11);
         let outputs = vec![
-            make_mhin_output(output_a, 4_000, 10, 0, 0),
-            make_mhin_output(output_b, 1_000, 5, 0, 1),
+            make_zeld_output(output_a, 4_000, 10, 0, 0),
+            make_zeld_output(output_b, 1_000, 5, 0, 1),
         ];
         let expected_shares = calculate_proportional_distribution(60, &outputs);
 
-        let tx = MhinTransaction {
+        let tx = ZeldTransaction {
             txid: deterministic_txid(0xAA),
             inputs: vec![
-                MhinInput { utxo_key: input_a },
-                MhinInput { utxo_key: input_b },
+                ZeldInput { utxo_key: input_a },
+                ZeldInput { utxo_key: input_b },
             ],
             outputs: outputs.clone(),
             zero_count: 0,
@@ -790,7 +790,7 @@ mod tests {
             has_op_return_distribution: false,
         };
 
-        let block = PreProcessedMhinBlock {
+        let block = PreProcessedZeldBlock {
             transactions: vec![tx],
             max_zero_count: 0,
         };
@@ -805,7 +805,7 @@ mod tests {
             assert_eq!(store.get(&output.utxo_key), expected);
         }
 
-        // Verify ProcessedMhinBlock fields
+        // Verify ProcessedZeldBlock fields
         // input_a has 60, input_b has 0, so only 1 is counted as spent
         assert_eq!(result.utxo_spent_count, 1);
         assert_eq!(result.new_utxo_count, outputs.len() as u64);
@@ -819,7 +819,7 @@ mod tests {
 
     #[test]
     fn process_block_respects_custom_distribution_requests() {
-        let protocol = MhinProtocol::new(MhinConfig::default());
+        let protocol = ZeldProtocol::new(ZeldConfig::default());
 
         let capped_input = fixed_utxo_key(0x80);
         let exact_input = fixed_utxo_key(0x81);
@@ -833,24 +833,24 @@ mod tests {
         let capped_output_a = fixed_utxo_key(0x20);
         let capped_output_b = fixed_utxo_key(0x21);
         let capped_outputs = vec![
-            make_mhin_output(capped_output_a, 4_000, 2, 40, 0),
-            make_mhin_output(capped_output_b, 1_000, 3, 30, 1),
+            make_zeld_output(capped_output_a, 4_000, 2, 40, 0),
+            make_zeld_output(capped_output_b, 1_000, 3, 30, 1),
         ];
         let capped_expected = calculate_proportional_distribution(50, &capped_outputs);
 
         let exact_output_a = fixed_utxo_key(0x22);
         let exact_output_b = fixed_utxo_key(0x23);
         let exact_outputs = vec![
-            make_mhin_output(exact_output_a, 2_000, 5, 10, 0),
-            make_mhin_output(exact_output_b, 3_000, 1, 15, 1),
+            make_zeld_output(exact_output_a, 2_000, 5, 10, 0),
+            make_zeld_output(exact_output_b, 3_000, 1, 15, 1),
         ];
         let exact_requested: Vec<_> = exact_outputs.iter().map(|o| o.distribution).collect();
 
         let remainder_output_a = fixed_utxo_key(0x24);
         let remainder_output_b = fixed_utxo_key(0x25);
         let remainder_outputs = vec![
-            make_mhin_output(remainder_output_a, 5_000, 7, 20, 0),
-            make_mhin_output(remainder_output_b, 1_000, 0, 10, 1),
+            make_zeld_output(remainder_output_a, 5_000, 7, 20, 0),
+            make_zeld_output(remainder_output_b, 1_000, 0, 10, 1),
         ];
         let mut remainder_expected: Vec<_> =
             remainder_outputs.iter().map(|o| o.distribution).collect();
@@ -858,9 +858,9 @@ mod tests {
         let shortfall = 50u64.saturating_sub(remainder_total);
         remainder_expected[0] = remainder_expected[0].saturating_add(shortfall);
 
-        let capped_tx = MhinTransaction {
+        let capped_tx = ZeldTransaction {
             txid: deterministic_txid(0x01),
-            inputs: vec![MhinInput {
+            inputs: vec![ZeldInput {
                 utxo_key: capped_input,
             }],
             outputs: capped_outputs.clone(),
@@ -868,9 +868,9 @@ mod tests {
             reward: 0,
             has_op_return_distribution: true,
         };
-        let exact_tx = MhinTransaction {
+        let exact_tx = ZeldTransaction {
             txid: deterministic_txid(0x02),
-            inputs: vec![MhinInput {
+            inputs: vec![ZeldInput {
                 utxo_key: exact_input,
             }],
             outputs: exact_outputs.clone(),
@@ -878,9 +878,9 @@ mod tests {
             reward: 0,
             has_op_return_distribution: true,
         };
-        let remainder_tx = MhinTransaction {
+        let remainder_tx = ZeldTransaction {
             txid: deterministic_txid(0x03),
-            inputs: vec![MhinInput {
+            inputs: vec![ZeldInput {
                 utxo_key: remainder_input,
             }],
             outputs: remainder_outputs.clone(),
@@ -889,7 +889,7 @@ mod tests {
             has_op_return_distribution: true,
         };
 
-        let block = PreProcessedMhinBlock {
+        let block = PreProcessedZeldBlock {
             transactions: vec![capped_tx, exact_tx, remainder_tx],
             max_zero_count: 0,
         };
@@ -900,7 +900,7 @@ mod tests {
             assert_eq_cov!(store.balance(&key), 0, "inputs must be burned after use");
         }
 
-        // Verify ProcessedMhinBlock fields
+        // Verify ProcessedZeldBlock fields
         assert_eq_cov!(
             result.utxo_spent_count,
             3,
@@ -941,7 +941,7 @@ mod tests {
 
     #[test]
     fn process_block_handles_zero_inputs_and_missing_outputs() {
-        let protocol = MhinProtocol::new(MhinConfig::default());
+        let protocol = ZeldProtocol::new(ZeldConfig::default());
 
         let zero_input = fixed_utxo_key(0x90);
         let producing_input = fixed_utxo_key(0x91);
@@ -950,13 +950,13 @@ mod tests {
         let reward_output_a = fixed_utxo_key(0x30);
         let reward_output_b = fixed_utxo_key(0x31);
         let reward_only_outputs = vec![
-            make_mhin_output(reward_output_a, 1_000, 11, 0, 0),
-            make_mhin_output(reward_output_b, 2_000, 22, 0, 1),
+            make_zeld_output(reward_output_a, 1_000, 11, 0, 0),
+            make_zeld_output(reward_output_b, 2_000, 22, 0, 1),
         ];
 
-        let zero_input_tx = MhinTransaction {
+        let zero_input_tx = ZeldTransaction {
             txid: deterministic_txid(0x10),
-            inputs: vec![MhinInput {
+            inputs: vec![ZeldInput {
                 utxo_key: zero_input,
             }],
             outputs: reward_only_outputs.clone(),
@@ -964,9 +964,9 @@ mod tests {
             reward: 0,
             has_op_return_distribution: false,
         };
-        let empty_outputs_tx = MhinTransaction {
+        let empty_outputs_tx = ZeldTransaction {
             txid: deterministic_txid(0x11),
-            inputs: vec![MhinInput {
+            inputs: vec![ZeldInput {
                 utxo_key: producing_input,
             }],
             outputs: Vec::new(),
@@ -975,7 +975,7 @@ mod tests {
             has_op_return_distribution: true,
         };
 
-        let block = PreProcessedMhinBlock {
+        let block = PreProcessedZeldBlock {
             transactions: vec![zero_input_tx, empty_outputs_tx],
             max_zero_count: 0,
         };
@@ -996,7 +996,7 @@ mod tests {
             "inputs without outputs must fully leave the store"
         );
 
-        // Verify ProcessedMhinBlock fields
+        // Verify ProcessedZeldBlock fields
         // zero_input has 0 balance so it doesn't count as spent, producing_input has 25 so it counts
         assert_eq_cov!(
             result.utxo_spent_count,

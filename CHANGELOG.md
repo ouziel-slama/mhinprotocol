@@ -11,63 +11,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Corrected the configured MHIN base reward to `4_096 * 10u64.pow(8)` across all networks.
+- Corrected the configured ZELD base reward to `4_096 * 10u64.pow(8)` across all networks.
 
 ## [0.2.2] - 2025-12-04
 
 ### Fixed
 
-- Corrected the configured MHIN base reward to `4_096 * (10 ^ 8)` across all networks.
+- Corrected the configured ZELD base reward to `4_096 * (10 ^ 8)` across all networks.
 
 ## [0.2.1] - 2025-12-02
 
 ### Fixed
 
 - `leading_zero_count` now iterates bytes in the displayed order so it counts the true leading zeros of a txid hash despite the internal little-endian storage
-- `MhinProtocol::process_block` now skips persisting zero-value outputs so the MHIN store only tracks spendable UTXOs
+- `ZeldProtocol::process_block` now skips persisting zero-value outputs so the ZELD store only tracks spendable UTXOs
 
 ## [0.2.0] - 2025-11-30
 
 ### Added
 
-- `MhinNetwork` enum plus per-network `MhinConfig` constants for mainnet, testnet4, signet, and regtest
+- `ZeldNetwork` enum plus per-network `ZeldConfig` constants for mainnet, testnet4, signet, and regtest
 - Documentation note added in `docs/protocol.typ` clarifying OP_RETURN behavior
-- `MhinStore::pop` method for retrieving and removing MHIN balances in one call
+- `ZeldStore::pop` method for retrieving and removing ZELD balances in one call
 
 ### Changed
 
-- `MhinConfig::mhin_prefix` now stores a static byte slice to make the configuration compile-time constant
-- `MhinProtocol::process_block` now uses `MhinStore::pop` to burn spent inputs atomically
+- `ZeldConfig::zeld_prefix` now stores a static byte slice to make the configuration compile-time constant
+- `ZeldProtocol::process_block` now uses `ZeldStore::pop` to burn spent inputs atomically
 
 ## [0.1.1] - 2025-11-30
 
 ### Added
 
-- `ProcessedMhinBlock` return type that surfaces reward entries, totals, and processing stats
+- `ProcessedZeldBlock` return type that surfaces reward entries, totals, and processing stats
 - `Reward` type describing each rewarded output when processing a block
 
 ### Changed
 
-- `MhinBlock` has been renamed to `PreProcessedMhinBlock` throughout the public API
-- `MhinProtocol::process_block` no longer requires a block index and now returns `ProcessedMhinBlock`
+- `ZeldBlock` has been renamed to `PreProcessedZeldBlock` throughout the public API
+- `ZeldProtocol::process_block` no longer requires a block index and now returns `ProcessedZeldBlock`
 
 ## [0.1.0] - 2025-11-29
 
 ### Added
 
-- Initial release of the MHIN protocol implementation
-- `MhinProtocol` struct for processing Bitcoin blocks
-- `MhinStore` trait for storage backend abstraction
-- `MhinConfig` for protocol configuration (min_zero_count, base_reward, mhin_prefix)
-- `MhinBlock`, `MhinTransaction`, `MhinInput`, `MhinOutput` types
+- Initial release of the ZELD protocol implementation
+- `ZeldProtocol` struct for processing Bitcoin blocks
+- `ZeldStore` trait for storage backend abstraction
+- `ZeldConfig` for protocol configuration (min_zero_count, base_reward, zeld_prefix)
+- `ZeldBlock`, `ZeldTransaction`, `ZeldInput`, `ZeldOutput` types
 - Two-phase block processing:
-  - `pre_process_block`: parallelizable extraction of MHIN-relevant data
+  - `pre_process_block`: parallelizable extraction of ZELD-relevant data
   - `process_block`: sequential balance updates
-- Proportional MHIN distribution based on output values
+- Proportional ZELD distribution based on output values
 - Custom distribution via OP_RETURN with CBOR-encoded data
 - Comprehensive test suite with 28 unit tests
 
-[Unreleased]: https://github.com/ouziel-slama/mhinprotocol/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/ouziel-slama/mhinprotocol/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/ouziel-slama/mhinprotocol/releases/tag/v0.1.0
+[Unreleased]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/ouziel-slama/zeldhash-protocol/releases/tag/v0.1.0
 

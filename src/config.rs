@@ -1,73 +1,73 @@
 use crate::types::Amount;
 
-/// Static parameters that describe how the MHIN protocol behaves on a network.
+/// Static parameters that describe how the ZELD protocol behaves on a network.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MhinConfig {
-    /// Minimum leading zeros required for a transaction to earn MHIN.
+pub struct ZeldConfig {
+    /// Minimum leading zeros required for a transaction to earn ZELD.
     pub min_zero_count: u8,
     /// Base reward for the best transaction in a block.
     pub base_reward: Amount,
     /// Prefix bytes for custom distribution OP_RETURN data.
-    pub mhin_prefix: &'static [u8],
+    pub zeld_prefix: &'static [u8],
 }
 
-/// Bitcoin networks supported by the MHIN protocol.
+/// Bitcoin networks supported by the ZELD protocol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MhinNetwork {
+pub enum ZeldNetwork {
     Mainnet,
     Testnet4,
     Signet,
     Regtest,
 }
 
-impl MhinConfig {
-    /// MHIN parameters for Bitcoin mainnet.
+impl ZeldConfig {
+    /// ZELD parameters for Bitcoin mainnet.
     pub const MAINNET: Self = Self {
         min_zero_count: 6,
         base_reward: 4_096 * 10u64.pow(8),
-        mhin_prefix: b"MHIN",
+        zeld_prefix: b"ZELD",
     };
 
-    /// MHIN parameters for Bitcoin testnet4.
+    /// ZELD parameters for Bitcoin testnet4.
     pub const TESTNET4: Self = Self {
         min_zero_count: 2,
         base_reward: 4_096 * 10u64.pow(8),
-        mhin_prefix: b"MHIN",
+        zeld_prefix: b"ZELD",
     };
 
-    /// MHIN parameters for Bitcoin signet.
+    /// ZELD parameters for Bitcoin signet.
     pub const SIGNET: Self = Self {
         min_zero_count: 2,
         base_reward: 4_096 * 10u64.pow(8),
-        mhin_prefix: b"MHIN",
+        zeld_prefix: b"ZELD",
     };
 
-    /// MHIN parameters for Bitcoin regtest.
+    /// ZELD parameters for Bitcoin regtest.
     pub const REGTEST: Self = Self {
         min_zero_count: 2,
         base_reward: 4_096 * 10u64.pow(8),
-        mhin_prefix: b"MHIN",
+        zeld_prefix: b"ZELD",
     };
 
     /// Returns the configuration associated with the provided Bitcoin network.
-    pub const fn for_network(network: MhinNetwork) -> Self {
+    pub const fn for_network(network: ZeldNetwork) -> Self {
         match network {
-            MhinNetwork::Mainnet => Self::MAINNET,
-            MhinNetwork::Testnet4 => Self::TESTNET4,
-            MhinNetwork::Signet => Self::SIGNET,
-            MhinNetwork::Regtest => Self::REGTEST,
+            ZeldNetwork::Mainnet => Self::MAINNET,
+            ZeldNetwork::Testnet4 => Self::TESTNET4,
+            ZeldNetwork::Signet => Self::SIGNET,
+            ZeldNetwork::Regtest => Self::REGTEST,
         }
     }
 }
 
-impl Default for MhinConfig {
+impl Default for ZeldConfig {
     fn default() -> Self {
         Self::MAINNET
     }
 }
 
-impl From<MhinNetwork> for MhinConfig {
-    fn from(network: MhinNetwork) -> Self {
+impl From<ZeldNetwork> for ZeldConfig {
+    fn from(network: ZeldNetwork) -> Self {
         Self::for_network(network)
     }
 }
@@ -77,61 +77,61 @@ mod tests {
     use super::*;
 
     fn assert_config(
-        config: MhinConfig,
+        config: ZeldConfig,
         min_zero_count: u8,
         base_reward: Amount,
         prefix: &'static [u8],
     ) {
         assert_eq!(config.min_zero_count, min_zero_count);
         assert_eq!(config.base_reward, base_reward);
-        assert_eq!(config.mhin_prefix, prefix);
+        assert_eq!(config.zeld_prefix, prefix);
     }
 
     #[test]
     fn constants_expose_expected_parameters() {
         let base_reward = 4_096 * 10u64.pow(8);
-        assert_config(MhinConfig::MAINNET, 6, base_reward, b"MHIN");
-        assert_config(MhinConfig::TESTNET4, 2, base_reward, b"MHIN");
-        assert_config(MhinConfig::SIGNET, 2, base_reward, b"MHIN");
-        assert_config(MhinConfig::REGTEST, 2, base_reward, b"MHIN");
+        assert_config(ZeldConfig::MAINNET, 6, base_reward, b"ZELD");
+        assert_config(ZeldConfig::TESTNET4, 2, base_reward, b"ZELD");
+        assert_config(ZeldConfig::SIGNET, 2, base_reward, b"ZELD");
+        assert_config(ZeldConfig::REGTEST, 2, base_reward, b"ZELD");
     }
 
     #[test]
     fn for_network_routes_to_correct_constants() {
         assert_eq!(
-            MhinConfig::for_network(MhinNetwork::Mainnet),
-            MhinConfig::MAINNET
+            ZeldConfig::for_network(ZeldNetwork::Mainnet),
+            ZeldConfig::MAINNET
         );
         assert_eq!(
-            MhinConfig::for_network(MhinNetwork::Testnet4),
-            MhinConfig::TESTNET4
+            ZeldConfig::for_network(ZeldNetwork::Testnet4),
+            ZeldConfig::TESTNET4
         );
         assert_eq!(
-            MhinConfig::for_network(MhinNetwork::Signet),
-            MhinConfig::SIGNET
+            ZeldConfig::for_network(ZeldNetwork::Signet),
+            ZeldConfig::SIGNET
         );
         assert_eq!(
-            MhinConfig::for_network(MhinNetwork::Regtest),
-            MhinConfig::REGTEST
+            ZeldConfig::for_network(ZeldNetwork::Regtest),
+            ZeldConfig::REGTEST
         );
     }
 
     #[test]
     fn from_network_matches_for_network() {
         let networks = [
-            MhinNetwork::Mainnet,
-            MhinNetwork::Testnet4,
-            MhinNetwork::Signet,
-            MhinNetwork::Regtest,
+            ZeldNetwork::Mainnet,
+            ZeldNetwork::Testnet4,
+            ZeldNetwork::Signet,
+            ZeldNetwork::Regtest,
         ];
 
         for network in networks {
-            assert_eq!(MhinConfig::from(network), MhinConfig::for_network(network));
+            assert_eq!(ZeldConfig::from(network), ZeldConfig::for_network(network));
         }
     }
 
     #[test]
     fn default_matches_mainnet() {
-        assert_eq!(MhinConfig::default(), MhinConfig::MAINNET);
+        assert_eq!(ZeldConfig::default(), ZeldConfig::MAINNET);
     }
 }

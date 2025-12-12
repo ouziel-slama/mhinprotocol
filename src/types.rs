@@ -3,17 +3,17 @@ use bitcoin::Txid;
 /// 8-byte key identifying a UTXO, derived from txid and vout via xxHash.
 pub type UtxoKey = [u8; 8];
 
-/// MHIN balance type (unsigned 64-bit integer).
+/// ZELD balance type (unsigned 64-bit integer).
 pub type Amount = u64;
 
-/// Represents a transaction output with MHIN-relevant data.
+/// Represents a transaction output with ZELD-relevant data.
 #[derive(Debug, Clone)]
-pub struct MhinOutput {
+pub struct ZeldOutput {
     /// Unique key identifying this UTXO.
     pub utxo_key: UtxoKey,
     /// Satoshi value of this output.
     pub value: Amount,
-    /// MHIN reward assigned to this output.
+    /// ZELD reward assigned to this output.
     pub reward: Amount,
     /// Custom distribution amount from OP_RETURN (if any).
     pub distribution: Amount,
@@ -21,35 +21,35 @@ pub struct MhinOutput {
     pub vout: u32,
 }
 
-/// Represents a transaction input with MHIN-relevant data.
+/// Represents a transaction input with ZELD-relevant data.
 #[derive(Debug, Clone)]
-pub struct MhinInput {
+pub struct ZeldInput {
     /// Key of the UTXO being spent.
     pub utxo_key: UtxoKey,
 }
 
-/// Pre-processed transaction with all MHIN-relevant fields.
+/// Pre-processed transaction with all ZELD-relevant fields.
 #[derive(Debug, Clone)]
-pub struct MhinTransaction {
+pub struct ZeldTransaction {
     /// Transaction ID.
     pub txid: Txid,
     /// Transaction inputs.
-    pub inputs: Vec<MhinInput>,
+    pub inputs: Vec<ZeldInput>,
     /// Transaction outputs (excluding OP_RETURN).
-    pub outputs: Vec<MhinOutput>,
+    pub outputs: Vec<ZeldOutput>,
     /// Number of leading zeros in the txid.
     pub zero_count: u8,
-    /// Total MHIN reward for this transaction.
+    /// Total ZELD reward for this transaction.
     pub reward: Amount,
     /// Whether custom distribution was specified via OP_RETURN.
     pub has_op_return_distribution: bool,
 }
 
-/// Pre-processed block with all MHIN-relevant transactions.
+/// Pre-processed block with all ZELD-relevant transactions.
 #[derive(Debug, Clone)]
-pub struct PreProcessedMhinBlock {
+pub struct PreProcessedZeldBlock {
     /// Transactions in the block (excluding coinbase).
-    pub transactions: Vec<MhinTransaction>,
+    pub transactions: Vec<ZeldTransaction>,
     /// Highest leading zero count among all transactions.
     pub max_zero_count: u8,
 }
@@ -61,7 +61,7 @@ pub struct Reward {
     pub txid: Txid,
     /// Output index carrying the reward.
     pub vout: u32,
-    /// MHIN reward granted to the output.
+    /// ZELD reward granted to the output.
     pub reward: Amount,
     /// Leading zero count of the transaction ID.
     pub zero_count: u8,
@@ -69,7 +69,7 @@ pub struct Reward {
 
 /// Fully processed block statistics and reward set.
 #[derive(Debug, Clone)]
-pub struct ProcessedMhinBlock {
+pub struct ProcessedZeldBlock {
     /// All rewards generated within the block.
     pub rewards: Vec<Reward>,
     /// Sum of all rewards in the block.

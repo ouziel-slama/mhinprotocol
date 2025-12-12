@@ -1,5 +1,5 @@
 #set document(
-  title: "MY HASH IS NICE - MHIN Protocol",
+  title: "ZELDHASH Protocol",
   author: "Ouziel Slama"
 )
 #set page(
@@ -9,12 +9,16 @@
 )
 #set par(justify: true, leading: 0.65em)
 #set heading(numbering: "1.1")
+#show heading: it => [
+  #it
+  #v(0.8em)
+]
 
 #align(center)[
-  #text(size: 24pt, weight: "bold")[MY HASH IS NICE PROTOCOL]
+  #text(size: 24pt, weight: "bold")[ZELDHASH PROTOCOL]
 ]
 #align(center)[
-  #text(size: 14pt)[*Make your Bitcoin transactions nicer and earn MHIN.*]
+  #text(size: 14pt)[*Hunt for Bitcoin's Rarest Transactions and Earn ZELD.*]
 ]
 #align(center)[
   #text(size: 12pt)[By Ouziel Slama]
@@ -24,23 +28,23 @@
 
 = Motivations
 
-- For aesthetic reasons. To make each transaction not just a financial operation, but a brushstroke in the blockchain's grand canvas of mathematical beauty.
+- For the thrill of the hunt. Every transaction becomes an opportunity to discover something rare — a digital treasure hidden in plain sight on the blockchain.
 
-- These cascading patterns of zeros would not only create beauty but could also enhance compression, potentially streamlining the blockchain's storage and processing efficiency.
+- These patterns of leading zeros aren't just rare — they could also enhance compression, potentially streamlining blockchain storage and processing efficiency.
 
-- Anyone can earn MHIN by creating beautiful transactions - no single-winner-per-block like in Bitcoin block mining!
+- Anyone can earn ZELD by hunting rare transactions — no single-winner-per-block like in Bitcoin block mining. The hunt is open to all.
 
-- If successful, MHIN tokens could eventually reimburse transaction fees - rewarding those who make nice looking transactions!
+- If successful, ZELD tokens could eventually reimburse transaction fees — rewarding hunters who uncover the rarest finds!
 
-= MHIN mining
+= ZELD mining
 
-To mine MHIN you must broadcast a Bitcoin transaction whose txid starts with at least 6 zeros. The reward is calculated based on how your transaction compares to the nicest transaction in the block:
+To mine ZELD you must broadcast a Bitcoin transaction whose txid starts with at least 6 zeros. The reward is calculated based on how your transaction compares to the nicest transaction in the block:
 
-- In a given block, transactions starting with the most zeros earn 4096 MHIN
+- In a given block, transactions starting with the most zeros earn 4096 ZELD
 
-- Transactions with one zero less than the best transactions earn 4096/16 or 256 MHIN
+- Transactions with one zero less than the best transactions earn 4096/16 or 256 ZELD
 
-- Transactions with two fewer zeros earn 4096 / 16 /16 or 16 MHIN
+- Transactions with two fewer zeros earn 4096 / 16 /16 or 16 ZELD
 
 - etc.
 
@@ -54,11 +58,11 @@ The formula used is therefore as follows:
 
 With `max_zero_count` equal to the number of zeros which start the best transaction and `zero_count` the number of zeros which start the transaction for which we calculate the reward.
 
-*Note:* Coinbase transactions are not eligible for MHIN rewards.
+*Note:* Coinbase transactions are not eligible for ZELD rewards.
 
-= MHIN distribution
+= ZELD distribution
 
-MHINs earned with a transaction starting with 6 or more zeros are distributed to UTXOs. The distribution is carried out as follows:
+ZELDs earned with a transaction starting with 6 or more zeros are distributed to UTXOs. The distribution is carried out as follows:
 
 - If there is a single non-OP_RETURN UTXO it receives the entire reward.
 
@@ -66,11 +70,11 @@ MHINs earned with a transaction starting with 6 or more zeros are distributed to
 
 - The calculations being made only with integers, the possible remainder of the division is distributed to the first non-OP_RETURN UTXO.
 
-For example, if a transaction earning 256 MHIN contains 4 outputs with 500, 500, 500 and 2000 Satoshis respectively, the first output receives 86 MHIN of the reward, the second and third 85 MHIN.
+For example, if a transaction earning 256 ZELD contains 4 outputs with 500, 500, 500 and 2000 Satoshis respectively, the first output receives 86 ZELD of the reward, the second and third 85 ZELD.
 
-= Moving MHIN
+= Moving ZELD
 
-When UTXOs with attached MHINs are spent, the MHINs are distributed to the new UTXOs in the transaction. There are two methods for distributing MHINs when moving them:
+When UTXOs with attached ZELDs are spent, the ZELDs are distributed to the new UTXOs in the transaction. There are two methods for distributing ZELDs when moving them:
 
 == Method 1: Automatic Proportional Distribution
 
@@ -78,17 +82,17 @@ By default, distribution is done in exactly the same way as rewards - proportion
 
 == Method 2: Custom Distribution via OP_RETURN
 
-You can specify exactly how MHINs should be distributed by including an OP_RETURN output in your transaction with custom distribution data. This allows for precise control over MHIN transfers.
+You can specify exactly how ZELDs should be distributed by including an OP_RETURN output in your transaction with custom distribution data. This allows for precise control over ZELD transfers.
 
 === OP_RETURN Format:
 
-- The OP_RETURN script must contain data that starts with the 4-byte prefix "MHIN"
+- The OP_RETURN script must contain data that starts with the 4-byte prefix "ZELD"
 
 - Following the prefix, the data must be encoded in CBOR format
 
 - The CBOR data should represent a vector of unsigned 64-bit integers (Vec<u64>)
 
-- Each integer specifies how many MHINs to send to the corresponding output UTXO
+- Each integer specifies how many ZELDs to send to the corresponding output UTXO
 
 === Distribution Rules:
 
@@ -98,19 +102,19 @@ You can specify exactly how MHINs should be distributed by including an OP_RETUR
 
 - If the array is too short, zeros are appended
 
-- The total sum of the distribution values cannot exceed the total MHINs being spent
+- The total sum of the distribution values cannot exceed the total ZELDs being spent
 
 - If the sum is less than the total, the difference is added to the first output
 
 - If the sum exceeds the total, the transaction falls back to proportional distribution
 
-- Newly mined MHIN rewards are always distributed proportionally and then combined with the custom distribution
+- Newly mined ZELD rewards are always distributed proportionally and then combined with the custom distribution
 
 === Example:
 
-If you have 1000 MHINs to distribute across 3 outputs and want to send 600 to the first, 300 to the second, and 100 to the third, your OP_RETURN would contain "MHIN" followed by the CBOR encoding of [600, 300, 100].
+If you have 1000 ZELDs to distribute across 3 outputs and want to send 600 to the first, 300 to the second, and 100 to the third, your OP_RETURN would contain "ZELD" followed by the CBOR encoding of [600, 300, 100].
 
 *Notes:*
 - If no valid OP_RETURN distribution is found, the transaction automatically uses the proportional distribution method.
-- If a transaction contains only one OP_RETURN output, any MHIN attached to the transaction’s inputs **and any newly earned reward** are permanently burned because there are no spendable outputs to receive them.
-- When several OP_RETURN outputs are present, only the one appearing last in the transaction and carrying a valid `MHIN`+CBOR payload is considered for distribution.
+- If a transaction contains only one OP_RETURN output, any ZELD attached to the transaction’s inputs #strong[and any newly earned reward] are permanently burned because there are no spendable outputs to receive them.
+- When several OP_RETURN outputs are present, only the one appearing last in the transaction and carrying a valid `ZELD`+CBOR payload is considered for distribution.

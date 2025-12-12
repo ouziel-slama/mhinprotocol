@@ -4,7 +4,7 @@ use bitcoin::{opcodes, script::Instruction, ScriptBuf, Txid};
 use ciborium::de::from_reader;
 use xxhash_rust::xxh64::xxh64;
 
-use crate::types::{Amount, MhinOutput, UtxoKey};
+use crate::types::{Amount, UtxoKey, ZeldOutput};
 
 pub(crate) fn compute_utxo_key(txid: &Txid, vout: u32) -> UtxoKey {
     let mut payload = [0u8; 36];
@@ -82,7 +82,7 @@ pub(crate) fn calculate_reward(
 
 pub(crate) fn calculate_proportional_distribution(
     total_reward: Amount,
-    outputs: &[MhinOutput],
+    outputs: &[ZeldOutput],
 ) -> Vec<Amount> {
     if outputs.is_empty() {
         return Vec::new();
@@ -146,8 +146,8 @@ mod tests {
             .into_script()
     }
 
-    fn make_output(value: Amount) -> MhinOutput {
-        MhinOutput {
+    fn make_output(value: Amount) -> ZeldOutput {
+        ZeldOutput {
             utxo_key: [0; 8],
             value,
             reward: 0,
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn parse_op_return_succeeds_with_valid_prefix_and_cbor() {
-        const PREFIX: &[u8] = b"MHIN";
+        const PREFIX: &[u8] = b"ZELD";
         let mut payload = PREFIX.to_vec();
         payload.extend(encode_values(&[1, 2, 3]));
         let script = build_op_return_script(&payload);
@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn parse_op_return_rejects_missing_op_return() {
         let script = ScriptBuf::builder().push_slice(b"data").into_script();
-        assert!(parse_op_return(&script, b"MHIN").is_none());
+        assert!(parse_op_return(&script, b"ZELD").is_none());
     }
 
     #[test]
@@ -226,18 +226,18 @@ mod tests {
             .push_opcode(opcodes::all::OP_RETURN)
             .push_opcode(opcodes::all::OP_ADD)
             .into_script();
-        assert!(parse_op_return(&script, b"MHIN").is_none());
+        assert!(parse_op_return(&script, b"ZELD").is_none());
     }
 
     #[test]
     fn parse_op_return_enforces_prefix_length() {
         let script = build_op_return_script(b"\x01");
-        assert!(parse_op_return(&script, b"MHIN").is_none());
+        assert!(parse_op_return(&script, b"ZELD").is_none());
     }
 
     #[test]
     fn parse_op_return_enforces_prefix_match() {
-        const PREFIX: &[u8] = b"MHIN";
+        const PREFIX: &[u8] = b"ZELD";
         let mut payload = b"BADP".to_vec();
         payload.extend(encode_values(&[9]));
         let script = build_op_return_script(&payload);
@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn parse_op_return_rejects_invalid_cbor() {
-        const PREFIX: &[u8] = b"MHIN";
+        const PREFIX: &[u8] = b"ZELD";
         let mut payload = PREFIX.to_vec();
         payload.extend([0xff, 0x00]);
         let script = build_op_return_script(&payload);
@@ -258,14 +258,14 @@ mod tests {
     #[test]
     fn parse_op_return_rejects_empty_script() {
         let script = ScriptBuf::new();
-        assert!(parse_op_return(&script, b"MHIN").is_none());
+        assert!(parse_op_return(&script, b"ZELD").is_none());
     }
 
     #[test]
     fn parse_op_return_bubbles_error_before_op_return() {
         let bytes = vec![opcodes::all::OP_PUSHDATA1.to_u8(), 0x02];
         let script = ScriptBuf::from_bytes(bytes);
-        assert!(parse_op_return(&script, b"MHIN").is_none());
+        assert!(parse_op_return(&script, b"ZELD").is_none());
     }
 
     #[test]
@@ -273,7 +273,7 @@ mod tests {
         let script = ScriptBuf::builder()
             .push_opcode(opcodes::all::OP_RETURN)
             .into_script();
-        assert!(parse_op_return(&script, b"MHIN").is_none());
+        assert!(parse_op_return(&script, b"ZELD").is_none());
     }
 
     #[test]
@@ -284,7 +284,7 @@ mod tests {
             0x01,
         ];
         let script = ScriptBuf::from_bytes(bytes);
-        assert!(parse_op_return(&script, b"MHIN").is_none());
+        assert!(parse_op_return(&script, b"ZELD").is_none());
     }
 
     #[test]
