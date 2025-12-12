@@ -1,7 +1,7 @@
 use bitcoin::Txid;
 
-/// 8-byte key identifying a UTXO, derived from txid and vout via xxHash.
-pub type UtxoKey = [u8; 8];
+/// 12-byte key identifying a UTXO, derived from txid and vout via xxh3-128.
+pub type UtxoKey = [u8; 12];
 
 /// ZELD balance type (unsigned 64-bit integer).
 pub type Amount = u64;

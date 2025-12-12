@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use bitcoin::{opcodes, script::Instruction, ScriptBuf, Txid};
 use ciborium::de::from_reader;
-use xxhash_rust::xxh64::xxh64;
+use xxhash_rust::xxh3::xxh3_128;
 
 use crate::types::{Amount, UtxoKey, ZeldOutput};
 
@@ -10,7 +10,12 @@ pub(crate) fn compute_utxo_key(txid: &Txid, vout: u32) -> UtxoKey {
     let mut payload = [0u8; 36];
     payload[..32].copy_from_slice(txid.as_ref());
     payload[32..].copy_from_slice(&vout.to_le_bytes());
-    xxh64(&payload, 0).to_le_bytes()
+
+    // xxh3_128 is extremely fast and provides enough entropy; truncate to 96 bits.
+    let hash = xxh3_128(&payload).to_le_bytes();
+    let mut key = [0u8; 12];
+    key.copy_from_slice(&hash[..12]);
+    key
 }
 
 pub(crate) fn leading_zero_count(txid: &Txid) -> u8 {
@@ -148,7 +153,7 @@ mod tests {
 
     fn make_output(value: Amount) -> ZeldOutput {
         ZeldOutput {
-            utxo_key: [0; 8],
+            utxo_key: [0; 12],
             value,
             reward: 0,
             distribution: 0,
@@ -173,7 +178,7 @@ mod tests {
         let key_a1 = compute_utxo_key(&txid_a, 1);
         let key_b0 = compute_utxo_key(&txid_b, 0);
 
-        assert_eq!(key_a0.len(), 8);
+        assert_eq!(key_a0.len(), 12);
         assert_ne!(key_a0, key_a1);
         assert_ne!(key_a0, key_b0);
     }

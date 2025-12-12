@@ -371,7 +371,7 @@ mod tests {
     }
 
     fn fixed_utxo_key(byte: u8) -> UtxoKey {
-        [byte; 8]
+        [byte; 12]
     }
 
     fn make_zeld_output(
@@ -633,7 +633,7 @@ mod tests {
             matches_base_reward,
             "eligible OP_RETURN-only transactions still earn ZELD"
         );
-        let inputs_tracked = tx.inputs.iter().all(|input| input.utxo_key != [0; 8]);
+        let inputs_tracked = tx.inputs.iter().all(|input| input.utxo_key != [0; 12]);
         assert_cov!(
             inputs_tracked,
             "inputs must still be tracked even without spendable outputs"

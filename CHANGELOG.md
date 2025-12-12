@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `UtxoKey` expanded to 12 bytes using xxh3-128 (truncated) for faster hashing and lower collision risk.
+
 ## [0.2.3] - 2025-12-04
 
 ### Fixed

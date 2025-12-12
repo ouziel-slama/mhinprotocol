@@ -16,4 +16,4 @@ categories = ["cryptography::cryptocurrencies", "algorithms"]
 bitcoin = "0.32"
 ciborium = "0.2"
 serde = { version = "1.0", features = ["derive"] }
-xxhash-rust = { version = "0.8", default-features = false, features = ["xxh64"] }
+xxhash-rust = { version = "0.8", default-features = false, features = ["xxh3"] }

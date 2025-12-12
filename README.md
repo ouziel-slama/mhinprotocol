@@ -133,7 +133,7 @@ Include an OP_RETURN output with:
 | `ZeldStore` | Trait for storage backend implementation |
 | `PreProcessedZeldBlock` | Pre-processed block data |
 | `ZeldTransaction` | Transaction with ZELD-relevant fields |
-| `UtxoKey` | 8-byte key identifying a UTXO (`[u8; 8]`) |
+| `UtxoKey` | 12-byte key identifying a UTXO (`[u8; 12]`) |
 | `Amount` | ZELD balance type (`u64`) |
 
 ## License
