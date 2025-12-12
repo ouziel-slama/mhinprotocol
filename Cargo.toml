@@ -1,6 +1,6 @@
 [package]
 name = "zeldhash-protocol"
-version = "0.2.3"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.63"
 license = "MIT OR Apache-2.0"
