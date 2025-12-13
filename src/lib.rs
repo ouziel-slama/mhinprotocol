@@ -26,7 +26,8 @@
 
 /// Protocol configuration.
 pub mod config;
-mod helpers;
+/// Helper functions for ZELD protocol operations.
+pub mod helpers;
 /// Core protocol implementation.
 pub mod protocol;
 /// Storage trait abstraction.

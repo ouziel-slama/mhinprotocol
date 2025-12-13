@@ -6,7 +6,7 @@ use xxhash_rust::xxh3::xxh3_128;
 
 use crate::types::{Amount, UtxoKey, ZeldOutput};
 
-pub(crate) fn compute_utxo_key(txid: &Txid, vout: u32) -> UtxoKey {
+pub fn compute_utxo_key(txid: &Txid, vout: u32) -> UtxoKey {
     let mut payload = [0u8; 36];
     payload[..32].copy_from_slice(txid.as_ref());
     payload[32..].copy_from_slice(&vout.to_le_bytes());
@@ -18,7 +18,7 @@ pub(crate) fn compute_utxo_key(txid: &Txid, vout: u32) -> UtxoKey {
     key
 }
 
-pub(crate) fn leading_zero_count(txid: &Txid) -> u8 {
+pub fn leading_zero_count(txid: &Txid) -> u8 {
     let mut count: u8 = 0;
     let bytes: &[u8] = txid.as_ref();
 
@@ -39,7 +39,7 @@ pub(crate) fn leading_zero_count(txid: &Txid) -> u8 {
     count
 }
 
-pub(crate) fn parse_op_return(script: &ScriptBuf, prefix: &[u8]) -> Option<Vec<u64>> {
+pub fn parse_op_return(script: &ScriptBuf, prefix: &[u8]) -> Option<Vec<u64>> {
     let mut instructions = script.instructions();
 
     let op_return = instructions.next()?;
@@ -62,7 +62,7 @@ pub(crate) fn parse_op_return(script: &ScriptBuf, prefix: &[u8]) -> Option<Vec<u
     from_reader::<Vec<u64>, _>(&mut reader).ok()
 }
 
-pub(crate) fn calculate_reward(
+pub fn calculate_reward(
     zero_count: u8,
     max_zero_count: u8,
     min_zero_count: u8,
@@ -85,7 +85,7 @@ pub(crate) fn calculate_reward(
     reward
 }
 
-pub(crate) fn calculate_proportional_distribution(
+pub fn calculate_proportional_distribution(
     total_reward: Amount,
     outputs: &[ZeldOutput],
 ) -> Vec<Amount> {
