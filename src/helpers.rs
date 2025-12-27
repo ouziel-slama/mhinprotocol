@@ -4,7 +4,7 @@ use bitcoin::{opcodes, script::Instruction, ScriptBuf, Txid};
 use ciborium::de::from_reader;
 use xxhash_rust::xxh3::xxh3_128;
 
-use crate::types::{Amount, UtxoKey, ZeldOutput};
+use crate::types::{Amount, UtxoKey};
 
 pub fn compute_utxo_key(txid: &Txid, vout: u32) -> UtxoKey {
     let mut payload = [0u8; 36];
@@ -85,49 +85,6 @@ pub fn calculate_reward(
     reward
 }
 
-pub fn calculate_proportional_distribution(
-    total_reward: Amount,
-    outputs: &[ZeldOutput],
-) -> Vec<Amount> {
-    if outputs.is_empty() {
-        return Vec::new();
-    }
-
-    if total_reward == 0 {
-        return vec![0; outputs.len()];
-    }
-
-    if outputs.len() == 1 {
-        return vec![total_reward];
-    }
-
-    let eligible_outputs_len = outputs.len() - 1;
-    let mut shares = vec![0; outputs.len()];
-
-    let mut total_value: Amount = 0;
-    for output in &outputs[..eligible_outputs_len] {
-        total_value = total_value.saturating_add(output.value);
-    }
-
-    if total_value == 0 {
-        shares[0] = total_reward;
-        return shares;
-    }
-
-    let mut distributed: Amount = 0;
-    for (idx, output) in outputs[..eligible_outputs_len].iter().enumerate() {
-        let share = ((total_reward as u128 * output.value as u128) / total_value as u128) as Amount;
-        shares[idx] = share;
-        distributed = distributed.saturating_add(share);
-    }
-
-    if distributed < total_reward {
-        shares[0] = shares[0].saturating_add(total_reward - distributed);
-    }
-
-    shares
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,16 +106,6 @@ mod tests {
             .push_opcode(opcodes::all::OP_RETURN)
             .push_slice(push)
             .into_script()
-    }
-
-    fn make_output(value: Amount) -> ZeldOutput {
-        ZeldOutput {
-            utxo_key: [0; 12],
-            value,
-            reward: 0,
-            distribution: 0,
-            vout: 0,
-        }
     }
 
     fn encode_values(values: &[u64]) -> Vec<u8> {
@@ -310,34 +257,5 @@ mod tests {
     fn calculate_reward_exhausts_to_zero() {
         let reward = calculate_reward(0, 10, 0, 1);
         assert_eq!(reward, 0);
-    }
-
-    #[test]
-    fn calculate_proportional_distribution_handles_empty_cases() {
-        assert!(calculate_proportional_distribution(100, &[]).is_empty());
-
-        let single = vec![make_output(10)];
-        assert_eq!(calculate_proportional_distribution(100, &single), vec![100]);
-
-        let outputs = vec![make_output(0), make_output(5)];
-        assert_eq!(calculate_proportional_distribution(0, &outputs), vec![0, 0]);
-    }
-
-    #[test]
-    fn calculate_proportional_distribution_assigns_total_when_no_value() {
-        let outputs = vec![make_output(0), make_output(0)];
-        let shares = calculate_proportional_distribution(250, &outputs);
-        assert_eq!(shares, vec![250, 0]);
-    }
-
-    #[test]
-    fn calculate_proportional_distribution_distributes_and_handles_remainder() {
-        let outputs = vec![make_output(1), make_output(2), make_output(0)];
-        let shares = calculate_proportional_distribution(5, &outputs);
-
-        assert_eq!(shares[1], 3);
-        assert_eq!(shares[2], 0);
-        assert_eq!(shares[0], 2);
-        assert_eq!(shares.iter().sum::<Amount>(), 5);
     }
 }

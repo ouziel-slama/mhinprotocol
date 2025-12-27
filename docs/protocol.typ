@@ -38,13 +38,13 @@
 
 = ZELD mining
 
-To mine ZELD you must broadcast a Bitcoin transaction whose txid starts with at least 6 zeros. The reward is calculated based on how your transaction compares to the nicest transaction in the block:
+To mine ZELD you must broadcast a Bitcoin transaction whose txid starts with at least 6 zeros. The reward is calculated based on how your transaction compares to the transaction(s) with the most leading zeros in that block:
 
 - In a given block, transactions starting with the most zeros earn 4096 ZELD
 
-- Transactions with one zero less than the best transactions earn 4096/16 or 256 ZELD
+- Transactions with one fewer zero than the best earn 4096 / 16 = 256 ZELD
 
-- Transactions with two fewer zeros earn 4096 / 16 /16 or 16 ZELD
+- Transactions with two fewer zeros earn 4096 / 16 / 16 = 16 ZELD
 
 - etc.
 
@@ -56,29 +56,21 @@ The formula used is therefore as follows:
   ```
 ]
 
-With `max_zero_count` equal to the number of zeros which start the best transaction and `zero_count` the number of zeros which start the transaction for which we calculate the reward.
+Where `max_zero_count` is the leading zero count of the best transaction in the block, and `zero_count` is the leading zero count of the transaction being evaluated.
 
 *Note:* Coinbase transactions are not eligible for ZELD rewards.
 
 = ZELD distribution
 
-ZELDs earned with a transaction starting with 6 or more zeros are distributed to UTXOs. The distribution is carried out as follows:
+Throughout this document, *first non-OP_RETURN output* refers to the lowest-index output in the transaction that is not an OP_RETURN.
 
-- If there is a single non-OP_RETURN UTXO it receives the entire reward.
-
-- If there are two or more non-OP_RETURN UTXOs, the reward is distributed to all UTXOs, except the last one, in proportion to the value of each UTXO
-
-- The calculations being made only with integers, the possible remainder of the division is distributed to the first non-OP_RETURN UTXO.
-
-For example, if a transaction earning 256 ZELD contains 4 outputs with 500, 500, 500 and 2000 Satoshis respectively, the first output receives 86 ZELD of the reward, the second and third 85 ZELD.
+ZELD rewards earned by mining always attach to the first non-OP_RETURN output.
 
 = Moving ZELD
 
-When UTXOs with attached ZELDs are spent, the ZELDs are distributed to the new UTXOs in the transaction. There are two methods for distributing ZELDs when moving them:
+== Method 1: Automatic Distribution
 
-== Method 1: Automatic Proportional Distribution
-
-By default, distribution is done in exactly the same way as rewards - proportionally based on the Bitcoin values of the output UTXOs, excluding the last output if there are multiple outputs.
+When spending UTXOs that hold ZELD, all ZELD is transferred to the first non-OP_RETURN output by default.
 
 == Method 2: Custom Distribution via OP_RETURN
 
@@ -90,9 +82,9 @@ You can specify exactly how ZELDs should be distributed by including an OP_RETUR
 
 - Following the prefix, the data must be encoded in CBOR format
 
-- The CBOR data should represent a vector of unsigned 64-bit integers (Vec<u64>)
+- The CBOR data must be an array of unsigned 64-bit integers
 
-- Each integer specifies how many ZELDs to send to the corresponding output UTXO
+- Each integer specifies how many ZELDs to send to the corresponding output
 
 === Distribution Rules:
 
@@ -104,17 +96,17 @@ You can specify exactly how ZELDs should be distributed by including an OP_RETUR
 
 - The total sum of the distribution values cannot exceed the total ZELDs being spent
 
-- If the sum is less than the total, the difference is added to the first output
+- If the sum is less than the total, the remainder is added to the first non-OP_RETURN output
 
-- If the sum exceeds the total, the transaction falls back to proportional distribution
+- If the sum exceeds the total, the custom distribution is ignored and all spent ZELD attaches to the first non-OP_RETURN output
 
-- Newly mined ZELD rewards are always distributed proportionally and then combined with the custom distribution
+- Newly mined ZELD rewards always attach to the first non-OP_RETURN output, regardless of the custom distribution
 
 === Example:
 
 If you have 1000 ZELDs to distribute across 3 outputs and want to send 600 to the first, 300 to the second, and 100 to the third, your OP_RETURN would contain "ZELD" followed by the CBOR encoding of [600, 300, 100].
 
 *Notes:*
-- If no valid OP_RETURN distribution is found, the transaction automatically uses the proportional distribution method.
-- If a transaction contains only one OP_RETURN output, any ZELD attached to the transaction’s inputs #strong[and any newly earned reward] are permanently burned because there are no spendable outputs to receive them.
-- When several OP_RETURN outputs are present, only the one appearing last in the transaction and carrying a valid `ZELD`+CBOR payload is considered for distribution.
+- If no valid OP_RETURN distribution is found, the automatic distribution (Method 1) applies.
+- If all outputs are OP_RETURN, any ZELD attached to the transaction's inputs #strong[and any newly earned reward] is permanently burned because there are no spendable outputs to receive them.
+- When multiple OP_RETURN outputs are present, only the last one carrying a valid `ZELD`+CBOR payload is considered.

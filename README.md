@@ -113,15 +113,19 @@ let custom = ZeldConfig {
 
 When ZELD is earned or transferred:
 
-- Single output: receives the entire amount
-- Multiple outputs: distributed proportionally by satoshi value (excluding last output)
-- Remainder goes to the first output
+- By default, all ZELD goes to the first non-OP_RETURN output
+- Newly mined rewards always attach to the first non-OP_RETURN output
+- If a transaction has only OP_RETURN outputs, any ZELD is burned
 
 ### Custom Distribution
 
 Include an OP_RETURN output with:
 - 4-byte prefix: `ZELD`
-- CBOR-encoded `Vec<u64>` specifying exact amounts per output
+- CBOR-encoded array of `u64` specifying exact amounts per non-OP_RETURN output
+- Extra entries are ignored; missing entries default to 0
+- If the requested sum exceeds the available ZELD, the custom plan is ignored and everything goes to the first non-OP_RETURN output
+- If the requested sum is below the available ZELD, the remainder is added to the first non-OP_RETURN output
+- Only the last valid OP_RETURN payload is considered
 
 ## Types
 

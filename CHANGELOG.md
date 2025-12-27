@@ -7,11 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-12-27
+
+### Changed
+
+- **BREAKING**: ZELD distribution protocol significantly simplified
+  - Default distribution now sends all ZELD to the first non-OP_RETURN output (no more proportional distribution)
+  - Mining rewards always attach to the first non-OP_RETURN output
+  - Custom OP_RETURN distribution still supported with same rules (excess → fallback to first output, remainder → first output)
+- **BREAKING**: Removed `calculate_proportional_distribution` function from helpers module
+- Minimum Rust version bumped to 1.81
+
 ## [0.3.1] - 2025-12-13
 
 ### Changed
 
-- `helpers` module is now public, exposing `compute_utxo_key`, `leading_zero_count`, `parse_op_return`, `calculate_reward`, and `calculate_proportional_distribution` for external use.
+- `helpers` module is now public, exposing `compute_utxo_key`, `leading_zero_count`, `parse_op_return`, and `calculate_reward` for external use.
 
 ## [0.3.0] - 2025-12-12
 
@@ -79,7 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Custom distribution via OP_RETURN with CBOR-encoded data
 - Comprehensive test suite with 28 unit tests
 
-[Unreleased]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.2.3...v0.3.0
 [0.1.1]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.1.0...v0.1.1

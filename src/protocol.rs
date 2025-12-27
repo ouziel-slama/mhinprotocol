@@ -2,10 +2,7 @@ use bitcoin::Block;
 
 use crate::{
     config::ZeldConfig,
-    helpers::{
-        calculate_proportional_distribution, calculate_reward, compute_utxo_key,
-        leading_zero_count, parse_op_return,
-    },
+    helpers::{calculate_reward, compute_utxo_key, leading_zero_count, parse_op_return},
     store::ZeldStore,
     types::{
         PreProcessedZeldBlock, ProcessedZeldBlock, Reward, ZeldInput, ZeldOutput, ZeldTransaction,
@@ -65,7 +62,12 @@ impl ZeldProtocol {
             let mut outputs = Vec::with_capacity(tx.output.len());
             for (vout, out) in tx.output.iter().enumerate() {
                 if out.script_pubkey.is_op_return() {
-                    distributions = parse_op_return(&out.script_pubkey, self.config.zeld_prefix);
+                    if let Some(values) =
+                        parse_op_return(&out.script_pubkey, self.config.zeld_prefix)
+                    {
+                        // Only keep the last valid OP_RETURN payload, per the spec.
+                        distributions = Some(values);
+                    }
                     continue;
                 }
                 let value = out.value.to_sat();
@@ -106,12 +108,9 @@ impl ZeldProtocol {
                     self.config.min_zero_count,
                     self.config.base_reward,
                 );
-                if tx.reward > 0 {
-                    // Split rewards among eligible outputs (see docs/protocol.typ).
-                    let shares = calculate_proportional_distribution(tx.reward, &tx.outputs);
-                    for (i, output) in tx.outputs.iter_mut().enumerate() {
-                        output.reward = shares[i];
-                    }
+                if tx.reward > 0 && !tx.outputs.is_empty() {
+                    // All mined rewards attach to the first non-OP_RETURN output.
+                    tx.outputs[0].reward = tx.reward;
                 }
             }
         }
@@ -193,7 +192,10 @@ impl ZeldProtocol {
                         .collect();
                     let requested_total: u64 = requested.iter().copied().sum();
                     if requested_total > total_zeld_input {
-                        calculate_proportional_distribution(total_zeld_input, &tx.outputs)
+                        // Invalid request: fall back to sending everything to the first output.
+                        let mut shares = vec![0; tx.outputs.len()];
+                        shares[0] = total_zeld_input;
+                        shares
                     } else {
                         if requested_total < total_zeld_input {
                             requested[0] =
@@ -202,7 +204,9 @@ impl ZeldProtocol {
                         requested
                     }
                 } else {
-                    calculate_proportional_distribution(total_zeld_input, &tx.outputs)
+                    let mut shares = vec![0; tx.outputs.len()];
+                    shares[0] = total_zeld_input;
+                    shares
                 };
 
                 for (i, value) in shares.into_iter().enumerate() {
@@ -543,10 +547,8 @@ mod tests {
         );
         assert_eq!(tx.reward, expected_reward);
 
-        let expected_shares = calculate_proportional_distribution(tx.reward, &tx.outputs);
-        for (output, expected) in tx.outputs.iter().zip(expected_shares.iter()) {
-            assert_eq!(output.reward, *expected);
-        }
+        assert_eq!(tx.outputs[0].reward, expected_reward);
+        assert!(tx.outputs.iter().skip(1).all(|output| output.reward == 0));
 
         let op_return_distributions: Vec<_> = tx.outputs.iter().map(|o| o.distribution).collect();
         let matches_hints = op_return_distributions == vec![7, 8, 0];
@@ -594,6 +596,45 @@ mod tests {
         assert_cov!(
             default_distributions,
             "mismatched hints must leave outputs at default distributions"
+        );
+    }
+
+    #[test]
+    fn pre_process_block_keeps_last_valid_op_return() {
+        let prefix = b"ZELD";
+        let config = ZeldConfig {
+            min_zero_count: 0,
+            base_reward: 1_024,
+            zeld_prefix: prefix,
+        };
+        let protocol = ZeldProtocol::new(config);
+
+        let prev_outs = vec![previous_outpoint(0xAC, 0)];
+        let tx_outputs = vec![
+            standard_output(2_000),
+            standard_output(3_000),
+            op_return_with_prefix(prefix, &[5, 6]),
+            // Trailing invalid OP_RETURN must not override the last valid payload.
+            op_return_output_from_payload(b"BAD!".to_vec()),
+        ];
+        let block = build_block(vec![
+            make_coinbase_tx(),
+            make_transaction(prev_outs, tx_outputs),
+        ]);
+
+        let processed = protocol.pre_process_block(&block);
+        assert_eq_cov!(processed.transactions.len(), 1);
+        let tx = &processed.transactions[0];
+
+        assert_cov!(
+            tx.has_op_return_distribution,
+            "valid OP_RETURN must be retained"
+        );
+        let distributions: Vec<_> = tx.outputs.iter().map(|o| o.distribution).collect();
+        assert_eq_cov!(
+            distributions,
+            vec![5, 6],
+            "last valid payload drives distribution"
         );
     }
 
@@ -776,7 +817,6 @@ mod tests {
             make_zeld_output(output_a, 4_000, 10, 0, 0),
             make_zeld_output(output_b, 1_000, 5, 0, 1),
         ];
-        let expected_shares = calculate_proportional_distribution(60, &outputs);
 
         let tx = ZeldTransaction {
             txid: deterministic_txid(0xAA),
@@ -800,10 +840,8 @@ mod tests {
         assert_eq!(store.balance(&input_a), 0);
         assert_eq!(store.balance(&input_b), 0);
 
-        for (idx, output) in outputs.iter().enumerate() {
-            let expected = output.reward + expected_shares[idx];
-            assert_eq!(store.get(&output.utxo_key), expected);
-        }
+        assert_eq!(store.get(&output_a), outputs[0].reward + 60);
+        assert_eq!(store.get(&output_b), outputs[1].reward);
 
         // Verify ProcessedZeldBlock fields
         // input_a has 60, input_b has 0, so only 1 is counted as spent
@@ -836,7 +874,6 @@ mod tests {
             make_zeld_output(capped_output_a, 4_000, 2, 40, 0),
             make_zeld_output(capped_output_b, 1_000, 3, 30, 1),
         ];
-        let capped_expected = calculate_proportional_distribution(50, &capped_outputs);
 
         let exact_output_a = fixed_utxo_key(0x22);
         let exact_output_b = fixed_utxo_key(0x23);
@@ -852,11 +889,6 @@ mod tests {
             make_zeld_output(remainder_output_a, 5_000, 7, 20, 0),
             make_zeld_output(remainder_output_b, 1_000, 0, 10, 1),
         ];
-        let mut remainder_expected: Vec<_> =
-            remainder_outputs.iter().map(|o| o.distribution).collect();
-        let remainder_total: Amount = remainder_expected.iter().sum();
-        let shortfall = 50u64.saturating_sub(remainder_total);
-        remainder_expected[0] = remainder_expected[0].saturating_add(shortfall);
 
         let capped_tx = ZeldTransaction {
             txid: deterministic_txid(0x01),
@@ -910,15 +942,10 @@ mod tests {
             capped_outputs.len() + exact_outputs.len() + remainder_outputs.len();
         assert_eq_cov!(result.new_utxo_count, expected_new_utxos as u64);
 
-        for (idx, output) in capped_outputs.iter().enumerate() {
-            let expected = output.reward + capped_expected[idx];
-            let balance = store.balance(&output.utxo_key);
-            assert_eq_cov!(
-                balance,
-                expected,
-                "overages fall back to proportional distribution"
-            );
-        }
+        let capped_first_balance = store.balance(&capped_output_a);
+        assert_eq_cov!(capped_first_balance, capped_outputs[0].reward + 50);
+        let capped_second_balance = store.balance(&capped_output_b);
+        assert_eq_cov!(capped_second_balance, capped_outputs[1].reward);
 
         for (output, requested) in exact_outputs.iter().zip(exact_requested.iter()) {
             let balance = store.balance(&output.utxo_key);
@@ -929,14 +956,153 @@ mod tests {
             );
         }
 
-        for (output, expected_share) in remainder_outputs.iter().zip(remainder_expected.iter()) {
-            let balance = store.balance(&output.utxo_key);
+        let remainder_first_balance = store.balance(&remainder_output_a);
+        assert_eq_cov!(remainder_first_balance, remainder_outputs[0].reward + 40);
+        let remainder_second_balance = store.balance(&remainder_output_b);
+        assert_eq_cov!(remainder_second_balance, remainder_outputs[1].reward + 10);
+    }
+
+    #[test]
+    fn process_block_keeps_rewards_on_first_output_with_custom_distribution() {
+        let protocol = ZeldProtocol::new(ZeldConfig::default());
+
+        // Inputs carry ZELD; custom distribution requests some for the second output,
+        // but mining rewards must stay on the first output.
+        let input_key = fixed_utxo_key(0x90);
+        let mut store = MockStore::with_entries(&[(input_key, 50)]);
+
+        let reward_output = fixed_utxo_key(0xA0);
+        let secondary_output = fixed_utxo_key(0xA1);
+        let outputs = vec![
+            make_zeld_output(reward_output, 0, 100, 0, 0),
+            make_zeld_output(secondary_output, 0, 0, 20, 1),
+        ];
+
+        let tx = ZeldTransaction {
+            txid: deterministic_txid(0x55),
+            inputs: vec![ZeldInput { utxo_key: input_key }],
+            outputs: outputs.clone(),
+            zero_count: 0,
+            reward: 100,
+            has_op_return_distribution: true,
+        };
+
+        let block = PreProcessedZeldBlock {
+            transactions: vec![tx],
+            max_zero_count: 0,
+        };
+
+        let result = protocol.process_block(&block, &mut store);
+
+        // Requested 20 to the second output; remainder (30) stays with the first,
+        // which already carried the mining reward (100).
+        assert_eq_cov!(store.balance(&reward_output), 130);
+        assert_eq_cov!(store.balance(&secondary_output), 20);
+        assert_eq_cov!(result.total_reward, 100);
+        assert_eq_cov!(result.utxo_spent_count, 1);
+        assert_eq_cov!(result.new_utxo_count, 2);
+    }
+
+    #[test]
+    fn process_block_falls_back_when_custom_requests_exceed_inputs() {
+        let protocol = ZeldProtocol::new(ZeldConfig::default());
+
+        let input_key = fixed_utxo_key(0x91);
+        let mut store = MockStore::with_entries(&[(input_key, 25)]);
+
+        let reward_output = fixed_utxo_key(0xA2);
+        let secondary_output = fixed_utxo_key(0xA3);
+        let outputs = vec![
+            make_zeld_output(reward_output, 0, 64, 40, 0),
+            make_zeld_output(secondary_output, 0, 0, 30, 1),
+        ];
+
+        let tx = ZeldTransaction {
+            txid: deterministic_txid(0x56),
+            inputs: vec![ZeldInput { utxo_key: input_key }],
+            outputs: outputs.clone(),
+            zero_count: 0,
+            reward: 64,
+            has_op_return_distribution: true,
+        };
+
+        let block = PreProcessedZeldBlock {
+            transactions: vec![tx],
+            max_zero_count: 0,
+        };
+
+        let result = protocol.process_block(&block, &mut store);
+
+        // Requested 70 while only 25 are available; everything (25) falls back to the first
+        // output, which already carries the mining reward (64).
+        assert_eq_cov!(store.balance(&reward_output), 89);
+        assert_eq_cov!(store.balance(&secondary_output), 0);
+        assert_eq_cov!(result.total_reward, 64);
+        assert_eq_cov!(result.utxo_spent_count, 1);
+        assert_eq_cov!(result.new_utxo_count, 1);
+    }
+
+    #[test]
+    fn process_block_skips_zero_valued_outputs() {
+        let protocol = ZeldProtocol::new(ZeldConfig::default());
+
+        // Input exists but holds no ZELD.
+        let zero_input = fixed_utxo_key(0xA0);
+        let mut store = MockStore::with_entries(&[(zero_input, 0)]);
+
+        let zero_output_a = fixed_utxo_key(0xB0);
+        let zero_output_b = fixed_utxo_key(0xB1);
+        let zero_outputs = vec![
+            make_zeld_output(zero_output_a, 1_000, 0, 0, 0),
+            make_zeld_output(zero_output_b, 2_000, 0, 0, 1),
+        ];
+
+        let zero_output_tx = ZeldTransaction {
+            txid: deterministic_txid(0x44),
+            inputs: vec![ZeldInput {
+                utxo_key: zero_input,
+            }],
+            outputs: zero_outputs.clone(),
+            zero_count: 0,
+            reward: 0,
+            has_op_return_distribution: false,
+        };
+
+        let block = PreProcessedZeldBlock {
+            transactions: vec![zero_output_tx],
+            max_zero_count: 0,
+        };
+
+        let result = protocol.process_block(&block, &mut store);
+
+        assert_eq_cov!(
+            result.new_utxo_count,
+            0,
+            "zero-valued outputs must not create store entries"
+        );
+        assert_eq_cov!(
+            result.total_reward,
+            0,
+            "zero-valued outputs leave block totals unchanged"
+        );
+        assert_eq_cov!(
+            result.utxo_spent_count,
+            0,
+            "inputs with zero balance should not be counted as spent"
+        );
+
+        for output in zero_outputs {
             assert_eq_cov!(
-                balance,
-                output.reward + expected_share,
-                "unused amounts roll into the first request"
+                store.balance(&output.utxo_key),
+                0,
+                "store must ignore outputs that hold zero ZELD"
             );
         }
+        assert_eq_cov!(
+            store.balance(&zero_input),
+            0,
+            "input should be removed even when it carries no ZELD"
+        );
     }
 
     #[test]

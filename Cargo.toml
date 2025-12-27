@@ -1,8 +1,8 @@
 [package]
 name = "zeldhash-protocol"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
-rust-version = "1.63"
+rust-version = "1.81"
 license = "MIT OR Apache-2.0"
 description = "Reference Rust implementation of the ZELDHASH protocol."
 repository = "https://github.com/ouziel-slama/zeldhash-protocol"
