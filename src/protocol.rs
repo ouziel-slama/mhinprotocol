@@ -980,7 +980,9 @@ mod tests {
 
         let tx = ZeldTransaction {
             txid: deterministic_txid(0x55),
-            inputs: vec![ZeldInput { utxo_key: input_key }],
+            inputs: vec![ZeldInput {
+                utxo_key: input_key,
+            }],
             outputs: outputs.clone(),
             zero_count: 0,
             reward: 100,
@@ -1019,7 +1021,9 @@ mod tests {
 
         let tx = ZeldTransaction {
             txid: deterministic_txid(0x56),
-            inputs: vec![ZeldInput { utxo_key: input_key }],
+            inputs: vec![ZeldInput {
+                utxo_key: input_key,
+            }],
             outputs: outputs.clone(),
             zero_count: 0,
             reward: 64,
