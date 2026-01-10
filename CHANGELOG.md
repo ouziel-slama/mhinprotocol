@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-01-10
+
+### Added
+
+- `all_inputs_sighash_all` helper function to verify sighash types on transaction inputs
+- Support for sighash verification across P2PKH, P2WPKH, P2SH-multisig, P2WSH, and P2TR (Taproot) script types
+- Comprehensive test suite for sighash validation (30+ new tests)
+
+### Changed
+
+- **BREAKING**: Custom OP_RETURN distribution now requires all inputs to be signed with `SIGHASH_ALL` (or `SIGHASH_DEFAULT` for Taproot)
+  - This security enhancement ensures the distribution cannot be altered after signing
+  - If sighash validation fails, the automatic distribution (all ZELD to first output) applies
+- Updated protocol documentation (`docs/protocol.typ` and `docs/protocol.pdf`)
+- Updated README with sighash requirement for custom distribution
+
 ## [0.4.0] - 2025-12-27
 
 ### Changed
@@ -90,7 +106,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Custom distribution via OP_RETURN with CBOR-encoded data
 - Comprehensive test suite with 28 unit tests
 
-[Unreleased]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ouziel-slama/zeldhash-protocol/compare/v0.2.3...v0.3.0

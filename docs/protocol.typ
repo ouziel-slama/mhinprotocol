@@ -86,6 +86,14 @@ You can specify exactly how ZELDs should be distributed by including an OP_RETUR
 
 - Each integer specifies how many ZELDs to send to the corresponding output
 
+- All inputs in the transaction must be signed with SIGHASH_ALL for the OP_RETURN distribution to be considered valid. SIGHASH_ALL commits to all inputs and outputs, ensuring that the distribution cannot be altered after signing.
+
+- Supported script types for sighash verification: P2PKH, P2WPKH, P2SH-multisig, P2WSH, and P2TR (Taproot).
+
+- For Taproot inputs, SIGHASH_DEFAULT (0x00) is treated as equivalent to SIGHASH_ALL.
+
+- If the sighash type cannot be determined for any input (unknown script type), the OP_RETURN distribution is considered invalid and the automatic distribution applies.
+
 === Distribution Rules:
 
 - The number of values in the distribution array is automatically adjusted to match the number of non-OP_RETURN outputs

@@ -2,7 +2,10 @@ use bitcoin::Block;
 
 use crate::{
     config::ZeldConfig,
-    helpers::{calculate_reward, compute_utxo_key, leading_zero_count, parse_op_return},
+    helpers::{
+        all_inputs_sighash_all, calculate_reward, compute_utxo_key, leading_zero_count,
+        parse_op_return,
+    },
     store::ZeldStore,
     types::{
         PreProcessedZeldBlock, ProcessedZeldBlock, Reward, ZeldInput, ZeldOutput, ZeldTransaction,
@@ -80,13 +83,17 @@ impl ZeldProtocol {
                 });
             }
 
-            // Apply OP_RETURN-provided custom ZELD distribution
+            // Apply OP_RETURN-provided custom ZELD distribution only if all inputs
+            // are signed with SIGHASH_ALL (ensures distribution cannot be altered).
             let mut has_op_return_distribution = false;
             if let Some(values) = distributions {
-                for (i, output) in outputs.iter_mut().enumerate() {
-                    output.distribution = *values.get(i).unwrap_or(&0);
+                if all_inputs_sighash_all(&tx.input) {
+                    for (i, output) in outputs.iter_mut().enumerate() {
+                        output.distribution = *values.get(i).unwrap_or(&0);
+                    }
+                    has_op_return_distribution = true;
                 }
-                has_op_return_distribution = true;
+                // If sighash check fails, distribution is ignored (automatic distribution applies)
             }
 
             transactions.push(ZeldTransaction {
@@ -323,14 +330,65 @@ mod tests {
         OutPoint { txid, vout }
     }
 
+    // Creates a valid DER-encoded ECDSA signature with SIGHASH_ALL
+    fn make_ecdsa_sig_sighash_all() -> Vec<u8> {
+        let mut sig = vec![
+            0x30, 0x44, // SEQUENCE, length 68
+            0x02, 0x20, // INTEGER, length 32 (r)
+        ];
+        sig.extend([0x01; 32]); // r value
+        sig.extend([0x02, 0x20]); // INTEGER, length 32 (s)
+        sig.extend([0x02; 32]); // s value
+        sig.push(0x01); // SIGHASH_ALL
+        sig
+    }
+
+    // Creates a 33-byte compressed public key
+    fn make_pubkey() -> Vec<u8> {
+        let mut pk = vec![0x02];
+        pk.extend([0xab; 32]);
+        pk
+    }
+
+    // Creates a valid DER-encoded ECDSA signature with SIGHASH_NONE
+    fn make_ecdsa_sig_sighash_none() -> Vec<u8> {
+        let mut sig = make_ecdsa_sig_sighash_all();
+        *sig.last_mut().unwrap() = 0x02; // SIGHASH_NONE
+        sig
+    }
+
     fn make_inputs(outpoints: Vec<OutPoint>) -> Vec<TxIn> {
         outpoints
             .into_iter()
-            .map(|previous_output| TxIn {
-                previous_output,
-                script_sig: ScriptBuf::new(),
-                sequence: Sequence::MAX,
-                witness: Witness::new(),
+            .map(|previous_output| {
+                // Create a P2WPKH-style witness with SIGHASH_ALL signature
+                let mut witness = Witness::new();
+                witness.push(make_ecdsa_sig_sighash_all());
+                witness.push(make_pubkey());
+                TxIn {
+                    previous_output,
+                    script_sig: ScriptBuf::new(),
+                    sequence: Sequence::MAX,
+                    witness,
+                }
+            })
+            .collect()
+    }
+
+    fn make_inputs_with_sighash_none(outpoints: Vec<OutPoint>) -> Vec<TxIn> {
+        outpoints
+            .into_iter()
+            .map(|previous_output| {
+                // Create a P2WPKH-style witness with SIGHASH_NONE signature
+                let mut witness = Witness::new();
+                witness.push(make_ecdsa_sig_sighash_none());
+                witness.push(make_pubkey());
+                TxIn {
+                    previous_output,
+                    script_sig: ScriptBuf::new(),
+                    sequence: Sequence::MAX,
+                    witness,
+                }
             })
             .collect()
     }
@@ -556,6 +614,10 @@ mod tests {
             matches_hints,
             "distribution hints must map to outputs with defaults"
         );
+        assert_cov!(
+            tx.has_op_return_distribution,
+            "OP_RETURN distribution flag must be set when sighash check passes"
+        );
 
         let txid = rewarding_tx.compute_txid();
         for output in &tx.outputs {
@@ -678,6 +740,49 @@ mod tests {
         assert_cov!(
             inputs_tracked,
             "inputs must still be tracked even without spendable outputs"
+        );
+    }
+
+    #[test]
+    fn pre_process_block_ignores_op_return_distribution_when_sighash_invalid() {
+        let prefix = b"ZELD";
+        let config = ZeldConfig {
+            min_zero_count: 0,
+            base_reward: 512,
+            zeld_prefix: prefix,
+        };
+        let protocol = ZeldProtocol::new(config);
+
+        // Transaction with valid OP_RETURN but SIGHASH_NONE signature
+        let prev_outs = vec![previous_outpoint(0xAD, 0)];
+        let tx = Transaction {
+            version: Version::TWO,
+            lock_time: LockTime::ZERO,
+            input: make_inputs_with_sighash_none(prev_outs),
+            output: vec![
+                standard_output(3_000),
+                standard_output(2_000),
+                op_return_with_prefix(prefix, &[100, 200]),
+            ],
+        };
+        let block = build_block(vec![make_coinbase_tx(), tx]);
+
+        let processed = protocol.pre_process_block(&block);
+        assert_eq!(processed.transactions.len(), 1);
+        let tx = &processed.transactions[0];
+
+        // OP_RETURN distribution should be ignored due to invalid sighash
+        let ignored_distribution = !tx.has_op_return_distribution;
+        assert_cov!(
+            ignored_distribution,
+            "OP_RETURN distribution must be ignored when sighash check fails"
+        );
+
+        // All distributions should be zero (default)
+        let default_distributions = tx.outputs.iter().all(|o| o.distribution == 0);
+        assert_cov!(
+            default_distributions,
+            "distributions must remain at default when sighash check fails"
         );
     }
 

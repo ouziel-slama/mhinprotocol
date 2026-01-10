@@ -126,6 +126,7 @@ Include an OP_RETURN output with:
 - If the requested sum exceeds the available ZELD, the custom plan is ignored and everything goes to the first non-OP_RETURN output
 - If the requested sum is below the available ZELD, the remainder is added to the first non-OP_RETURN output
 - Only the last valid OP_RETURN payload is considered
+- **Important**: All inputs must be signed with `SIGHASH_ALL` (or `SIGHASH_DEFAULT` for Taproot) for the custom distribution to apply. This ensures the distribution cannot be altered after signing. Supported script types: P2PKH, P2WPKH, P2SH-multisig, P2WSH, and P2TR.
 
 ## Types
 
